@@ -21,6 +21,9 @@ export default function SettingsScreen() {
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<CitySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+
+  const selectedCountryName = SUPPORTED_COUNTRIES.find(c => c.code === countryCode)?.name || 'Select a country';
 
   async function handleCitySearch() {
     if (!cityQuery.trim()) return;
@@ -70,16 +73,34 @@ export default function SettingsScreen() {
           countries with state-specific holidays (e.g. US state codes like US-CA).
         </Text>
 
-        <View style={styles.countryGrid}>
-          {SUPPORTED_COUNTRIES.map(c => (
-            <Pressable
-              key={c.code}
-              style={[styles.countryChip, countryCode === c.code && styles.countryChipSelected]}
-              onPress={() => setCountryCode(c.code)}
-            >
-              <Text style={[styles.countryText, countryCode === c.code && styles.countryTextSelected]}>{c.name}</Text>
-            </Pressable>
-          ))}
+        <View style={styles.dropdownWrapper}>
+          <Pressable style={styles.selectorButton} onPress={() => setCountryDropdownOpen(!countryDropdownOpen)}>
+            <Text style={styles.selectorText}>{selectedCountryName}</Text>
+            <Ionicons name={countryDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
+          </Pressable>
+
+          {countryDropdownOpen && (
+            <View style={styles.dropdown}>
+              <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                {SUPPORTED_COUNTRIES.map((c, i) => (
+                  <Pressable
+                    key={c.code}
+                    style={[
+                      styles.dropdownRow,
+                      i < SUPPORTED_COUNTRIES.length - 1 && styles.cityResultDivider,
+                      countryCode === c.code && styles.dropdownRowSelected,
+                    ]}
+                    onPress={() => { setCountryCode(c.code); setCountryDropdownOpen(false); }}
+                  >
+                    <Text style={[styles.dropdownRowText, countryCode === c.code && { color: colors.accent, fontWeight: '600' }]}>
+                      {c.name}
+                    </Text>
+                    {countryCode === c.code && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Region / state code (optional)</Text>
@@ -177,6 +198,19 @@ function makeStyles(colors: ThemeColors) {
     countryChipSelected: { backgroundColor: colors.surfaceDark, borderColor: colors.surfaceDark },
     countryText: { fontSize: 13, color: colors.textPrimary },
     countryTextSelected: { color: colors.textOnDark },
+    dropdownWrapper: { position: 'relative', zIndex: 20, marginBottom: spacing.sm },
+    selectorButton: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderRadius: radii.sm,
+      padding: spacing.md,
+    },
+    selectorText: { fontSize: 15, color: colors.textPrimary },
+    dropdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.md },
+    dropdownRowSelected: { backgroundColor: colors.surface },
+    dropdownRowText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, color: colors.textPrimary },
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xxl * 1.3, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
     aboutLabel: { fontSize: 14, color: colors.textSecondary },

@@ -12,7 +12,7 @@ import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
 
-const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function CalendarScreen() {
   const { events, countryCode, region, latitude, longitude } = useEvents();

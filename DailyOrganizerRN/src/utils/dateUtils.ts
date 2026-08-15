@@ -4,7 +4,7 @@ import { startOfMonth, startOfWeek, addDays, isSameDay as dfIsSameDay, startOfDa
  * from adjacent months so the grid height stays consistent. */
 export function gridDates(monthContaining: Date): Date[] {
   const monthStart = startOfMonth(monthContaining);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday start
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday start
   return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
 }
 
