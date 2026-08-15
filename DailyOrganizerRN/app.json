@@ -15,12 +15,16 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.dailyorganizer",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "plugins": [
       "expo-notifications",
-      "expo-localization"
+      "expo-localization",
+      "expo-asset",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {
