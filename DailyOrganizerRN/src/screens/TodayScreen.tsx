@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, startOfDay, endOfDay, addDays } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
+import { loadForecast, weatherIcon, weatherLabel, DailyForecast } from '../services/weatherService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
@@ -17,13 +18,22 @@ function greeting(): string {
 }
 
 export default function TodayScreen() {
-  const { events } = useEvents();
+  const { events, latitude, longitude } = useEvents();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [todayForecast, setTodayForecast] = useState<DailyForecast | null>(null);
 
   const today = new Date();
+
+  useEffect(() => {
+    if (latitude == null || longitude == null) return;
+    loadForecast(latitude, longitude).then(days => {
+      const todayKey = format(today, 'yyyy-MM-dd');
+      setTodayForecast(days.find(d => d.date === todayKey) || null);
+    });
+  }, [latitude, longitude]);
 
   const todaysEvents = useMemo(() => {
     const start = startOfDay(today);
@@ -57,7 +67,15 @@ export default function TodayScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting()}</Text>
-          <Text style={styles.date}>{format(today, 'EEEE, MMMM d')}</Text>
+          <View style={styles.dateRow}>
+            <Text style={styles.date}>{format(today, 'EEEE, MMMM d')}</Text>
+            {todayForecast && (
+              <View style={styles.weatherChip}>
+                <Ionicons name={weatherIcon(todayForecast.weatherCode) as any} size={16} color={colors.accent} />
+                <Text style={styles.weatherText}>{Math.round(todayForecast.tempMaxC)}° / {Math.round(todayForecast.tempMinC)}°</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         {nextUpEvent && (
@@ -158,6 +176,9 @@ function makeStyles(colors: ThemeColors) {
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { padding: spacing.xl, paddingBottom: 40 },
     header: { marginBottom: spacing.xl },
+    dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    weatherChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
+    weatherText: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
     greeting: { ...typography.greeting, color: colors.textSecondary },
     date: { ...typography.screenTitle, marginTop: 2, color: colors.textPrimary },
     nextUpCard: {

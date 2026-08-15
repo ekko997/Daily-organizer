@@ -8,6 +8,10 @@ interface EventsContextValue {
   setCountryCode: (code: string) => void;
   region: string;
   setRegion: (region: string) => void;
+  cityName: string;
+  latitude: number | null;
+  longitude: number | null;
+  setLocation: (cityName: string, latitude: number, longitude: number) => void;
 }
 
 export const EventsContext = createContext<EventsContextValue>({
@@ -17,6 +21,10 @@ export const EventsContext = createContext<EventsContextValue>({
   setCountryCode: () => {},
   region: '',
   setRegion: () => {},
+  cityName: '',
+  latitude: null,
+  longitude: null,
+  setLocation: () => {},
 });
 
 export function useEvents() {

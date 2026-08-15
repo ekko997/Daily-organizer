@@ -6,6 +6,7 @@ import { useEvents } from '../utils/EventsContext';
 import { gridDates, isSameDay, dayStart, isoDateKey } from '../utils/dateUtils';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { loadHolidays, PublicHoliday } from '../services/holidayService';
+import { loadForecast, weatherIcon, DailyForecast } from '../services/weatherService';
 import { CATEGORY_STYLES } from '../models/Event';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
@@ -14,18 +15,26 @@ import AddEditEventModal from './AddEditEventModal';
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function CalendarScreen() {
-  const { events, countryCode, region } = useEvents();
+  const { events, countryCode, region, latitude, longitude } = useEvents();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [holidays, setHolidays] = useState<Map<string, PublicHoliday>>(new Map());
+  const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
   useEffect(() => {
     loadHolidays(countryCode, displayedMonth.getFullYear(), region || undefined).then(setHolidays);
   }, [countryCode, region, displayedMonth.getFullYear()]);
+
+  useEffect(() => {
+    if (latitude == null || longitude == null) return;
+    loadForecast(latitude, longitude).then(setForecast);
+  }, [latitude, longitude]);
+
+  const selectedDayForecast = forecast.find(d => d.date === isoDateKey(selectedDate));
 
   const dates = useMemo(() => gridDates(displayedMonth), [displayedMonth]);
 
@@ -99,9 +108,17 @@ export default function CalendarScreen() {
 
       <View style={styles.detailHeader}>
         <Text style={styles.detailDate}>{format(selectedDate, 'EEEE, MMMM d')}</Text>
-        <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
-          <Ionicons name="add" size={20} color={colors.white} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          {selectedDayForecast && (
+            <View style={styles.weatherChip}>
+              <Ionicons name={weatherIcon(selectedDayForecast.weatherCode) as any} size={14} color={colors.accent} />
+              <Text style={styles.weatherText}>{Math.round(selectedDayForecast.tempMaxC)}°/{Math.round(selectedDayForecast.tempMinC)}°</Text>
+            </View>
+          )}
+          <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
+            <Ionicons name="add" size={20} color={colors.white} />
+          </Pressable>
+        </View>
       </View>
 
       {selectedHoliday && (
@@ -177,6 +194,8 @@ function makeStyles(colors: ThemeColors) {
     detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
     detailDate: { ...typography.cardTitle, fontSize: 16, color: colors.textPrimary },
     addButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+    weatherChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.sm + 2, paddingVertical: 5 },
+    weatherText: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
     holidayBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
     holidayText: { fontSize: 14, fontWeight: '500', flex: 1, color: colors.textPrimary },
     holidaySubtext: { fontSize: 12, color: colors.textSecondary },

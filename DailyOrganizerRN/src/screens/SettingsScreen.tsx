@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { SUPPORTED_COUNTRIES } from '../services/holidayService';
+import { searchCity, CitySearchResult } from '../services/weatherService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme, ThemePreference } from '../utils/ThemeContext';
 
@@ -13,9 +14,28 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] =
 ];
 
 export default function SettingsScreen() {
-  const { countryCode, setCountryCode, region, setRegion } = useEvents();
+  const { countryCode, setCountryCode, region, setRegion, cityName, setLocation } = useEvents();
   const { colors, mode, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState<CitySearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  async function handleCitySearch() {
+    if (!cityQuery.trim()) return;
+    setSearching(true);
+    const results = await searchCity(cityQuery);
+    setCityResults(results);
+    setSearching(false);
+  }
+
+  function pickCity(result: CitySearchResult) {
+    const label = result.admin1 ? `${result.name}, ${result.admin1}, ${result.country}` : `${result.name}, ${result.country}`;
+    setLocation(label, result.latitude, result.longitude);
+    setCityResults([]);
+    setCityQuery('');
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -67,6 +87,44 @@ export default function SettingsScreen() {
           autoCapitalize="characters"
         />
 
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Weather location</Text>
+        <Text style={styles.helperText}>
+          Set your city to see a forecast for each day when scheduling. Weather is only available up to 16 days ahead.
+        </Text>
+
+        {cityName ? (
+          <View style={styles.currentCityRow}>
+            <Ionicons name="location" size={16} color={colors.accent} />
+            <Text style={styles.currentCityText}>{cityName}</Text>
+            <Pressable onPress={() => setCityQuery('')}>
+              <Text style={styles.changeLink}>Change</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={styles.citySearchRow}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Search for a city"
+            placeholderTextColor={colors.textSecondary}
+            value={cityQuery}
+            onChangeText={setCityQuery}
+            onSubmitEditing={handleCitySearch}
+          />
+          <Pressable style={styles.searchButton} onPress={handleCitySearch}>
+            {searching ? <ActivityIndicator color={colors.white} size="small" /> : <Ionicons name="search" size={18} color={colors.white} />}
+          </Pressable>
+        </View>
+
+        {cityResults.map((result, i) => (
+          <Pressable key={i} style={styles.cityResultRow} onPress={() => pickCity(result)}>
+            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.cityResultText}>
+              {result.name}{result.admin1 ? `, ${result.admin1}` : ''}, {result.country}
+            </Text>
+          </Pressable>
+        ))}
+
         <View style={styles.aboutRow}>
           <Text style={styles.aboutLabel}>Version</Text>
           <Text style={styles.aboutValue}>1.0.0</Text>
@@ -107,5 +165,12 @@ function makeStyles(colors: ThemeColors) {
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xxl * 1.3, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
     aboutLabel: { fontSize: 14, color: colors.textSecondary },
     aboutValue: { fontSize: 14, color: colors.textPrimary },
+    currentCityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.sm },
+    currentCityText: { flex: 1, fontSize: 14, color: colors.textPrimary },
+    changeLink: { fontSize: 13, color: colors.accent, fontWeight: '600' },
+    citySearchRow: { flexDirection: 'row', gap: spacing.sm },
+    searchButton: { width: 44, borderRadius: radii.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+    cityResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+    cityResultText: { fontSize: 14, color: colors.textPrimary },
   });
 }
