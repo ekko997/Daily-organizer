@@ -75,7 +75,7 @@ function MainApp() {
     if (!user) return;
     const unsubscribe = subscribeToEvents(user.uid, family?.id ?? null, setEvents);
     return unsubscribe;
-  }, [user, family?.id]);
+  }, [user?.uid, family?.id]);
 
   function setCountryCode(code: string) {
     setCountryCodeState(code);

@@ -73,7 +73,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       });
 
     return () => clearTimeout(timeout);
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!familyId) return;
