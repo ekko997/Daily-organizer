@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
+import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { OrganizerEvent, EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
 import { useEvents } from '../utils/EventsContext';
@@ -85,7 +85,16 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.xl }}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+      >
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{ padding: spacing.xl }}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.headerRow}>
           <Pressable onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
@@ -168,7 +177,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
             <Text style={styles.deleteText}>Delete Event</Text>
           </Pressable>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
