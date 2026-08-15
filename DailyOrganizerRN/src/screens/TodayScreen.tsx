@@ -6,9 +6,12 @@ import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
 import { loadForecast, weatherIcon, weatherLabel, DailyForecast } from '../services/weatherService';
+import { deleteEvent as deleteEventFromStorage } from '../services/storageService';
+import { cancelReminder } from '../services/notificationService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
+import SwipeableRow from '../components/SwipeableRow';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -18,7 +21,7 @@ function greeting(): string {
 }
 
 export default function TodayScreen() {
-  const { events, latitude, longitude } = useEvents();
+  const { events, latitude, longitude, refreshEvents } = useEvents();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -61,6 +64,12 @@ export default function TodayScreen() {
   }, [events]);
 
   const nextUpEvent = todaysEvents.find(item => item.occurrenceDate > new Date());
+
+  async function handleDeleteEvent(eventId: string) {
+    await cancelReminder(eventId);
+    await deleteEventFromStorage(eventId);
+    await refreshEvents();
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -115,21 +124,22 @@ export default function TodayScreen() {
           todaysEvents.map(({ event, occurrenceDate }, i) => {
             const style = CATEGORY_STYLES[event.category];
             return (
-              <Pressable
-                key={`${event.id}-${i}`}
-                style={[styles.eventRow, { borderLeftColor: style.color }]}
-                onPress={() => { setEditingEventId(event.id); setModalVisible(true); }}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  {!event.isAllDay && (
-                    <Text style={styles.eventTime}>{format(occurrenceDate, 'h:mm a')}</Text>
-                  )}
-                </View>
-                <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
-                  <Ionicons name={style.icon as any} size={14} color={style.color} />
-                </View>
-              </Pressable>
+              <SwipeableRow key={`${event.id}-${i}`} onDelete={() => handleDeleteEvent(event.id)} style={{ marginBottom: spacing.sm }}>
+                <Pressable
+                  style={[styles.eventRow, { borderLeftColor: style.color }]}
+                  onPress={() => { setEditingEventId(event.id); setModalVisible(true); }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    {!event.isAllDay && (
+                      <Text style={styles.eventTime}>{format(occurrenceDate, 'h:mm a')}</Text>
+                    )}
+                  </View>
+                  <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
+                    <Ionicons name={style.icon as any} size={14} color={style.color} />
+                  </View>
+                </Pressable>
+              </SwipeableRow>
             );
           })
         )}
@@ -206,7 +216,6 @@ function makeStyles(colors: ThemeColors) {
       borderLeftWidth: 4,
       borderRadius: radii.sm,
       padding: spacing.md,
-      marginBottom: spacing.sm,
     },
     eventTitle: { ...typography.body, color: colors.textPrimary },
     eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },

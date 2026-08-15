@@ -107,28 +107,38 @@ export default function SettingsScreen() {
           </View>
         ) : null}
 
-        <View style={styles.citySearchRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Search for a city"
-            placeholderTextColor={colors.textSecondary}
-            value={cityQuery}
-            onChangeText={setCityQuery}
-            onSubmitEditing={handleCitySearch}
-          />
-          <Pressable style={styles.searchButton} onPress={handleCitySearch}>
-            {searching ? <ActivityIndicator color={colors.white} size="small" /> : <Ionicons name="search" size={18} color={colors.white} />}
-          </Pressable>
-        </View>
+        <View style={styles.citySearchWrapper}>
+          <View style={styles.citySearchRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Search for a city"
+              placeholderTextColor={colors.textSecondary}
+              value={cityQuery}
+              onChangeText={setCityQuery}
+              onSubmitEditing={handleCitySearch}
+            />
+            <Pressable style={styles.searchButton} onPress={handleCitySearch}>
+              {searching ? <ActivityIndicator color={colors.white} size="small" /> : <Ionicons name="search" size={18} color={colors.white} />}
+            </Pressable>
+          </View>
 
-        {cityResults.map((result, i) => (
-          <Pressable key={i} style={styles.cityResultRow} onPress={() => pickCity(result)}>
-            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.cityResultText}>
-              {result.name}{result.admin1 ? `, ${result.admin1}` : ''}, {result.country}
-            </Text>
-          </Pressable>
-        ))}
+          {cityResults.length > 0 && (
+            <View style={styles.dropdown}>
+              {cityResults.map((result, i) => (
+                <Pressable
+                  key={i}
+                  style={[styles.cityResultRow, i < cityResults.length - 1 && styles.cityResultDivider]}
+                  onPress={() => pickCity(result)}
+                >
+                  <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                  <Text style={styles.cityResultText}>
+                    {result.name}{result.admin1 ? `, ${result.admin1}` : ''}, {result.country}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
 
         <View style={styles.aboutRow}>
           <Text style={styles.aboutLabel}>Version</Text>
@@ -174,9 +184,27 @@ function makeStyles(colors: ThemeColors) {
     currentCityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.sm },
     currentCityText: { flex: 1, fontSize: 14, color: colors.textPrimary },
     changeLink: { fontSize: 13, color: colors.accent, fontWeight: '600' },
+    citySearchWrapper: { position: 'relative', zIndex: 10 },
     citySearchRow: { flexDirection: 'row', gap: spacing.sm },
     searchButton: { width: 44, borderRadius: radii.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-    cityResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+    dropdown: {
+      position: 'absolute',
+      top: 54,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.background,
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 6,
+      paddingVertical: spacing.xs,
+    },
+    cityResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
+    cityResultDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
     cityResultText: { fontSize: 14, color: colors.textPrimary },
   });
 }
