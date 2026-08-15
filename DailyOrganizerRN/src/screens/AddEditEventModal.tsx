@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { OrganizerEvent, EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
+import { EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
 import { useEvents } from '../utils/EventsContext';
-import { upsertEvent, deleteEvent as deleteEventFromStorage } from '../services/storageService';
+import { useAuth } from '../utils/AuthContext';
+import { useFamily } from '../utils/FamilyContext';
+import { CloudEvent, upsertCloudEvent, deleteCloudEvent } from '../services/cloudEventService';
 import { scheduleReminder, cancelReminder } from '../services/notificationService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
@@ -16,7 +18,9 @@ interface Props {
 }
 
 export default function AddEditEventModal({ visible, onClose, initialDate, editingEventId }: Props) {
-  const { events, refreshEvents } = useEvents();
+  const { events, activeScope } = useEvents();
+  const { user } = useAuth();
+  const { family } = useFamily();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const editingEvent = events.find(e => e.id === editingEventId) || null;
@@ -57,8 +61,11 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   }
 
   async function handleSave() {
-    if (!title.trim()) return;
-    const event: OrganizerEvent = {
+    if (!title.trim() || !user) return;
+    // Editing keeps the event's original scope/owner; new events use whichever
+    // calendar (Personal / Family) is currently selected on the Calendar tab.
+    const scope = editingEvent?.scope ?? activeScope;
+    const event: CloudEvent = {
       id: editingEvent?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       title: title.trim(),
       notes,
@@ -68,18 +75,19 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       recurrence,
       reminderMinutesBefore: reminderMinutes,
       createdAt: editingEvent?.createdAt ?? new Date().toISOString(),
+      ownerId: editingEvent?.ownerId ?? user.uid,
+      scope,
+      familyId: scope === 'family' ? (family?.id ?? null) : null,
     };
-    await upsertEvent(event);
+    await upsertCloudEvent(event);
     await scheduleReminder(event);
-    await refreshEvents();
     onClose();
   }
 
   async function handleDelete() {
     if (!editingEvent) return;
     await cancelReminder(editingEvent.id);
-    await deleteEventFromStorage(editingEvent.id);
-    await refreshEvents();
+    await deleteCloudEvent(editingEvent.id);
     onClose();
   }
 
@@ -100,6 +108,16 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
           <Pressable onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
         </View>
+
+        {!editingEvent && (
+          <View style={styles.scopeNote}>
+            <Text style={styles.scopeNoteText}>
+              Adding to: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
+                {activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}
+              </Text>
+            </Text>
+          </View>
+        )}
 
         <TextInput
           style={styles.input}
@@ -190,6 +208,8 @@ function makeStyles(colors: ThemeColors) {
     title: { ...typography.body, fontSize: 16, color: colors.textPrimary },
     cancel: { color: colors.textSecondary, fontSize: 15 },
     save: { color: colors.accent, fontSize: 15, fontWeight: '700' },
+    scopeNote: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },
+    scopeNoteText: { fontSize: 13, color: colors.textSecondary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
     label: { fontSize: 15, color: colors.textPrimary },

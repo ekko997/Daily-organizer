@@ -10,12 +10,14 @@ import { loadForecast, weatherIcon, DailyForecast } from '../services/weatherSer
 import { CATEGORY_STYLES } from '../models/Event';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
+import { useFamily } from '../utils/FamilyContext';
 import AddEditEventModal from './AddEditEventModal';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export default function CalendarScreen() {
-  const { events, countryCode, region, latitude, longitude } = useEvents();
+  const { events, countryCode, region, latitude, longitude, activeScope, setActiveScope } = useEvents();
+  const { family } = useFamily();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
@@ -24,6 +26,7 @@ export default function CalendarScreen() {
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
 
   useEffect(() => {
     loadHolidays(countryCode, displayedMonth.getFullYear(), region || undefined).then(setHolidays);
@@ -46,7 +49,7 @@ export default function CalendarScreen() {
   function eventsOn(date: Date) {
     const start = dayStart(date);
     const end = endOfDay(date);
-    return events.filter(e => occurrencesInRange(e, start, end).length > 0);
+    return events.filter(e => e.scope === activeScope && occurrencesInRange(e, start, end).length > 0);
   }
 
   const selectedDayEvents = useMemo(
@@ -111,6 +114,35 @@ export default function CalendarScreen() {
             })}
           </View>
         ))}
+      </View>
+
+      <View style={styles.scopeSelectorWrapper}>
+        <Pressable style={styles.scopeSelectorButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
+          <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
+          <Text style={styles.scopeSelectorText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
+          <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
+        </Pressable>
+
+        {scopeDropdownOpen && (
+          <View style={styles.scopeDropdown}>
+            <Pressable
+              style={[styles.scopeDropdownRow, activeScope === 'personal' && styles.scopeDropdownRowSelected]}
+              onPress={() => { setActiveScope('personal'); setScopeDropdownOpen(false); }}
+            >
+              <Ionicons name="person" size={16} color={colors.textSecondary} />
+              <Text style={styles.scopeDropdownText}>Personal</Text>
+              {activeScope === 'personal' && <Ionicons name="checkmark" size={16} color={colors.accent} style={{ marginLeft: 'auto' }} />}
+            </Pressable>
+            <Pressable
+              style={[styles.scopeDropdownRow, styles.scopeDropdownDivider, activeScope === 'family' && styles.scopeDropdownRowSelected]}
+              onPress={() => { setActiveScope('family'); setScopeDropdownOpen(false); }}
+            >
+              <Ionicons name="people" size={16} color={colors.textSecondary} />
+              <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
+              {activeScope === 'family' && <Ionicons name="checkmark" size={16} color={colors.accent} style={{ marginLeft: 'auto' }} />}
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <View style={styles.divider} />
@@ -200,6 +232,38 @@ function makeStyles(colors: ThemeColors) {
     dayTextSelected: { color: colors.textOnDark, fontWeight: '600' },
     dayTextHoliday: { color: colors.holiday, fontWeight: '600' },
     dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent, marginTop: 3 },
+    scopeSelectorWrapper: { position: 'relative', zIndex: 15, paddingHorizontal: spacing.xl, marginTop: spacing.md },
+    scopeSelectorButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      alignSelf: 'flex-start',
+    },
+    scopeSelectorText: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+    scopeDropdown: {
+      position: 'absolute',
+      top: 44,
+      left: spacing.xl,
+      minWidth: 180,
+      backgroundColor: colors.background,
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 6,
+      paddingVertical: spacing.xs,
+    },
+    scopeDropdownRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md },
+    scopeDropdownDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+    scopeDropdownRowSelected: { backgroundColor: colors.surface },
+    scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
     divider: { height: 1, backgroundColor: colors.border, marginTop: spacing.lg },
     detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
     detailDate: { ...typography.cardTitle, fontSize: 16, color: colors.textPrimary },

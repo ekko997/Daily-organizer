@@ -1,9 +1,10 @@
 import { createContext, useContext } from 'react';
-import { OrganizerEvent } from '../models/Event';
+import { CloudEvent, EventScope } from '../services/cloudEventService';
 
 interface EventsContextValue {
-  events: OrganizerEvent[];
-  refreshEvents: () => Promise<void>;
+  events: CloudEvent[];
+  activeScope: EventScope;
+  setActiveScope: (scope: EventScope) => void;
   countryCode: string;
   setCountryCode: (code: string) => void;
   region: string;
@@ -16,7 +17,8 @@ interface EventsContextValue {
 
 export const EventsContext = createContext<EventsContextValue>({
   events: [],
-  refreshEvents: async () => {},
+  activeScope: 'personal',
+  setActiveScope: () => {},
   countryCode: 'US',
   setCountryCode: () => {},
   region: '',

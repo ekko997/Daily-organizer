@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
+import { useAuth } from '../utils/AuthContext';
+import { useFamily } from '../utils/FamilyContext';
 import { SUPPORTED_COUNTRIES } from '../services/holidayService';
 import { searchCity, CitySearchResult } from '../services/weatherService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
@@ -15,6 +17,8 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] =
 
 export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation } = useEvents();
+  const { user, signOut } = useAuth();
+  const { family, renameFamily } = useFamily();
   const { colors, mode, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -22,8 +26,20 @@ export default function SettingsScreen() {
   const [cityResults, setCityResults] = useState<CitySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const [editingFamilyName, setEditingFamilyName] = useState(false);
+  const [familyNameDraft, setFamilyNameDraft] = useState('');
 
   const selectedCountryName = SUPPORTED_COUNTRIES.find(c => c.code === countryCode)?.name || 'Select a country';
+
+  async function handleSaveFamilyName() {
+    if (familyNameDraft.trim()) await renameFamily(familyNameDraft.trim());
+    setEditingFamilyName(false);
+  }
+
+  async function handleShareCode() {
+    if (!family) return;
+    await Share.share({ message: `Join our family calendar on Daily Organizer! Invite code: ${family.inviteCode}` });
+  }
 
   async function handleCitySearch() {
     if (!cityQuery.trim()) return;
@@ -50,7 +66,46 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={{ padding: spacing.xl }} keyboardShouldPersistTaps="handled">
         <Text style={styles.header}>Settings</Text>
 
-        <Text style={styles.sectionLabel}>Appearance</Text>
+        <Text style={styles.sectionLabel}>Family</Text>
+        <View style={styles.familyCard}>
+          {editingFamilyName ? (
+            <View style={styles.familyNameEditRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                value={familyNameDraft}
+                onChangeText={setFamilyNameDraft}
+                placeholder="Family name"
+                placeholderTextColor={colors.textSecondary}
+                autoFocus
+              />
+              <Pressable onPress={handleSaveFamilyName}><Text style={styles.saveLink}>Save</Text></Pressable>
+            </View>
+          ) : (
+            <Pressable style={styles.familyNameRow} onPress={() => { setFamilyNameDraft(family?.name || ''); setEditingFamilyName(true); }}>
+              <Text style={styles.familyNameText}>{family?.name || 'Family'}</Text>
+              <Ionicons name="pencil" size={14} color={colors.textSecondary} />
+            </Pressable>
+          )}
+
+          <View style={styles.inviteRow}>
+            <View>
+              <Text style={styles.inviteLabel}>Invite code</Text>
+              <Text style={styles.inviteCode}>{family?.inviteCode}</Text>
+            </View>
+            <Pressable style={styles.shareButton} onPress={handleShareCode}>
+              <Ionicons name="share-outline" size={16} color={colors.white} />
+              <Text style={styles.shareButtonText}>Share</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.memberCount}>{family?.members.length || 1} member{(family?.members.length || 1) !== 1 ? 's' : ''}</Text>
+        </View>
+
+        <Pressable style={styles.signOutButton} onPress={signOut}>
+          <Text style={styles.signOutText}>Sign out{user?.email ? ` (${user.email})` : ''}</Text>
+        </Pressable>
+
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Appearance</Text>
         <View style={styles.themeRow}>
           {THEME_OPTIONS.map(opt => {
             const selected = preference === opt.value;
@@ -240,5 +295,18 @@ function makeStyles(colors: ThemeColors) {
     cityResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
     cityResultDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
     cityResultText: { fontSize: 14, color: colors.textPrimary },
+    familyCard: { backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.sm },
+    familyNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+    familyNameText: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
+    familyNameEditRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+    saveLink: { color: colors.accent, fontWeight: '700', fontSize: 14 },
+    inviteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    inviteLabel: { fontSize: 12, color: colors.textSecondary },
+    inviteCode: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, letterSpacing: 2 },
+    shareButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+    shareButtonText: { color: colors.white, fontSize: 13, fontWeight: '600' },
+    memberCount: { fontSize: 12, color: colors.textSecondary, marginTop: spacing.md },
+    signOutButton: { alignItems: 'center', padding: spacing.sm },
+    signOutText: { color: colors.holiday, fontSize: 13, fontWeight: '600' },
   });
 }

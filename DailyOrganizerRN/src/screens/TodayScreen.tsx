@@ -6,7 +6,7 @@ import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
 import { loadForecast, weatherIcon, weatherLabel, DailyForecast } from '../services/weatherService';
-import { deleteEvent as deleteEventFromStorage } from '../services/storageService';
+import { deleteCloudEvent } from '../services/cloudEventService';
 import { cancelReminder } from '../services/notificationService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
@@ -21,7 +21,7 @@ function greeting(): string {
 }
 
 export default function TodayScreen() {
-  const { events, latitude, longitude, refreshEvents } = useEvents();
+  const { events, latitude, longitude } = useEvents();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -67,8 +67,7 @@ export default function TodayScreen() {
 
   async function handleDeleteEvent(eventId: string) {
     await cancelReminder(eventId);
-    await deleteEventFromStorage(eventId);
-    await refreshEvents();
+    await deleteCloudEvent(eventId);
   }
 
   return (
