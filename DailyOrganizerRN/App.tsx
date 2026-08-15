@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import * as Localization from 'expo-localization';
 import { requestNotificationPermission } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
@@ -20,11 +20,15 @@ import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
 
 const Tab = createBottomTabNavigator();
 
-function LoadingScreen() {
+function LoadingScreen({ error }: { error?: string | null }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-      <ActivityIndicator color={colors.accent} size="large" />
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24 }}>
+      {error ? (
+        <Text style={{ color: colors.holiday, textAlign: 'center', fontSize: 14 }}>{error}</Text>
+      ) : (
+        <ActivityIndicator color={colors.accent} size="large" />
+      )}
     </View>
   );
 }
@@ -110,10 +114,11 @@ function MainApp() {
 
 function RootGate() {
   const { user, initializing } = useAuth();
-  const { family, loading: familyLoading } = useFamily();
+  const { family, loading: familyLoading, loadError } = useFamily();
 
   if (initializing) return <LoadingScreen />;
   if (!user) return <AuthScreen />;
+  if (loadError) return <LoadingScreen error={loadError} />;
   if (familyLoading) return <LoadingScreen />;
   if (!family) return <FamilySetupScreen />;
   return <MainApp />;

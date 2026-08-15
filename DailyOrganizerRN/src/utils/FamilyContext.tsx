@@ -13,6 +13,7 @@ import {
 interface FamilyContextValue {
   family: FamilyDoc | null;
   loading: boolean;
+  loadError: string | null;
   createFamily: (name: string) => Promise<void>;
   joinFamily: (code: string) => Promise<boolean>;
   renameFamily: (name: string) => Promise<void>;
@@ -21,6 +22,7 @@ interface FamilyContextValue {
 const FamilyContext = createContext<FamilyContextValue>({
   family: null,
   loading: true,
+  loadError: null,
   createFamily: async () => {},
   joinFamily: async () => false,
   renameFamily: async () => {},
@@ -31,6 +33,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [family, setFamily] = useState<FamilyDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -40,18 +43,31 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setLoading(true);
-    getUserFamilyId(user.uid).then(id => {
-      setFamilyId(id);
-      if (!id) setLoading(false);
-    });
+    setLoadError(null);
+    getUserFamilyId(user.uid)
+      .then(id => {
+        setFamilyId(id);
+        if (!id) setLoading(false);
+      })
+      .catch(err => {
+        setLoadError(err?.message ?? 'Failed to load account data.');
+        setLoading(false);
+      });
   }, [user]);
 
   useEffect(() => {
     if (!familyId) return;
-    const unsubscribe = onSnapshot(doc(db, 'families', familyId), snap => {
-      if (snap.exists()) setFamily({ id: snap.id, ...(snap.data() as any) });
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      doc(db, 'families', familyId),
+      snap => {
+        if (snap.exists()) setFamily({ id: snap.id, ...(snap.data() as any) });
+        setLoading(false);
+      },
+      err => {
+        setLoadError(err?.message ?? 'Failed to load family data.');
+        setLoading(false);
+      }
+    );
     return unsubscribe;
   }, [familyId]);
 
@@ -77,7 +93,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   }, [familyId]);
 
   return (
-    <FamilyContext.Provider value={{ family, loading, createFamily, joinFamily, renameFamily }}>
+    <FamilyContext.Provider value={{ family, loading, loadError, createFamily, joinFamily, renameFamily }}>
       {children}
     </FamilyContext.Provider>
   );
