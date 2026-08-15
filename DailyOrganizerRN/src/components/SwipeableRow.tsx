@@ -14,27 +14,39 @@ const MAX_SWIPE = -120;
 
 export default function SwipeableRow({ children, onDelete, deleteColor = '#D9435C', style }: Props) {
   const translateX = useRef(new Animated.Value(0)).current;
+  const currentValue = useRef(0);
+
+  const snapBack = () => {
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+    currentValue.current = 0;
+  };
 
   const panResponder = useRef(
     PanResponder.create({
-      // Only take over the gesture once it's clearly a horizontal swipe,
-      // so vertical scrolling in the list still works normally.
+      // Don't claim a plain tap — only a clear horizontal drag.
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) && gesture.dx < 0,
+        Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+      // Once we've claimed the gesture, don't let the parent ScrollView
+      // steal it mid-swipe — that's what left rows stuck before.
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
-        if (gesture.dx < 0) {
-          translateX.setValue(Math.max(gesture.dx, MAX_SWIPE));
-        }
+        const next = Math.min(0, Math.max(gesture.dx, MAX_SWIPE));
+        translateX.setValue(next);
+        currentValue.current = next;
       },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx < SWIPE_THRESHOLD) {
+      onPanResponderRelease: () => {
+        if (currentValue.current < SWIPE_THRESHOLD) {
           Animated.timing(translateX, { toValue: -500, duration: 200, useNativeDriver: true }).start(() => {
             onDelete();
           });
         } else {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+          snapBack();
         }
       },
+      // Safety net: if the gesture is cancelled some other way, always snap back
+      // rather than leaving the row stuck mid-swipe.
+      onPanResponderTerminate: snapBack,
     })
   ).current;
 
