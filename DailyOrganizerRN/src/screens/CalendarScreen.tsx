@@ -37,6 +37,11 @@ export default function CalendarScreen() {
   const selectedDayForecast = forecast.find(d => d.date === isoDateKey(selectedDate));
 
   const dates = useMemo(() => gridDates(displayedMonth), [displayedMonth]);
+  const weeks = useMemo(() => {
+    const chunks: Date[][] = [];
+    for (let i = 0; i < dates.length; i += 7) chunks.push(dates.slice(i, i + 7));
+    return chunks;
+  }, [dates]);
 
   function eventsOn(date: Date) {
     const start = dayStart(date);
@@ -74,34 +79,38 @@ export default function CalendarScreen() {
       </View>
 
       <View style={styles.grid}>
-        {dates.map((date, i) => {
-          const holiday = holidays.get(isoDateKey(date));
-          const hasEvents = eventsOn(date).length > 0;
-          const selected = isSameDay(date, selectedDate);
-          const today = isSameDay(date, new Date());
-          const currentMonth = isSameMonth(date, displayedMonth);
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.weekRow}>
+            {week.map((date, i) => {
+              const holiday = holidays.get(isoDateKey(date));
+              const hasEvents = eventsOn(date).length > 0;
+              const selected = isSameDay(date, selectedDate);
+              const today = isSameDay(date, new Date());
+              const currentMonth = isSameMonth(date, displayedMonth);
 
-          return (
-            <Pressable key={i} style={styles.dayCell} onPress={() => setSelectedDate(date)}>
-              <View style={[
-                styles.dayCircle,
-                selected && styles.dayCircleSelected,
-                !selected && holiday && styles.dayCircleHoliday,
-                !selected && today && styles.dayCircleToday,
-              ]}>
-                <Text style={[
-                  styles.dayText,
-                  { opacity: currentMonth ? 1 : 0.3 },
-                  selected && styles.dayTextSelected,
-                  !selected && holiday && styles.dayTextHoliday,
-                ]}>
-                  {format(date, 'd')}
-                </Text>
-              </View>
-              <View style={[styles.dot, { opacity: hasEvents ? 1 : 0 }]} />
-            </Pressable>
-          );
-        })}
+              return (
+                <Pressable key={i} style={styles.dayCell} onPress={() => setSelectedDate(date)}>
+                  <View style={[
+                    styles.dayCircle,
+                    selected && styles.dayCircleSelected,
+                    !selected && holiday && styles.dayCircleHoliday,
+                    !selected && today && styles.dayCircleToday,
+                  ]}>
+                    <Text style={[
+                      styles.dayText,
+                      { opacity: currentMonth ? 1 : 0.3 },
+                      selected && styles.dayTextSelected,
+                      !selected && holiday && styles.dayTextHoliday,
+                    ]}>
+                      {format(date, 'd')}
+                    </Text>
+                  </View>
+                  <View style={[styles.dot, { opacity: hasEvents ? 1 : 0 }]} />
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
 
       <View style={styles.divider} />
@@ -180,8 +189,9 @@ function makeStyles(colors: ThemeColors) {
     navButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     weekdayRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg },
     weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingTop: spacing.xs },
-    dayCell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 4 },
+    grid: { paddingHorizontal: spacing.md, paddingTop: spacing.xs },
+    weekRow: { flexDirection: 'row' },
+    dayCell: { flex: 1, alignItems: 'center', paddingVertical: 4 },
     dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
     dayCircleSelected: { backgroundColor: colors.surfaceDark },
     dayCircleHoliday: { backgroundColor: colors.holidayBg },
