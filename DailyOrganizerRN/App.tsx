@@ -6,6 +6,7 @@ import * as Localization from 'expo-localization';
 import { OrganizerEvent } from './src/models/Event';
 import { loadEvents } from './src/services/storageService';
 import { requestNotificationPermission } from './src/services/notificationService';
+import TodayScreen from './src/screens/TodayScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import AgendaScreen from './src/screens/AgendaScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
@@ -30,7 +31,12 @@ export default function App() {
   return (
     <EventsContext.Provider value={{ events, refreshEvents, countryCode, setCountryCode, region, setRegion }}>
       <NavigationContainer>
-        <Tab.Navigator screenOptions={{ tabBarActiveTintColor: '#5973E6' }}>
+        <Tab.Navigator initialRouteName="Today" screenOptions={{ tabBarActiveTintColor: '#5973E6' }}>
+          <Tab.Screen
+            name="Today"
+            component={TodayScreen}
+            options={{ tabBarIcon: ({ color, size }) => <Ionicons name="sunny" size={size} color={color} /> }}
+          />
           <Tab.Screen
             name="Calendar"
             component={CalendarScreen}
