@@ -1,5 +1,3 @@
-bash
-
 cat /home/claude/DailyOrganizerRN/src/screens/TodayScreen.tsx
 Output
 
