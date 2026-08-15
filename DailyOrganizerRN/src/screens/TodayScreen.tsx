@@ -80,8 +80,8 @@ export default function TodayScreen() {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>Today</Text>
-          <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
-            <Ionicons name="add" size={20} color={colors.textOnDark} />
+          <Pressable onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
+            <Ionicons name="add-circle" size={26} color="#5973E6" />
           </Pressable>
         </View>
 
@@ -105,9 +105,7 @@ export default function TodayScreen() {
                     <Text style={styles.eventTime}>{format(occurrenceDate, 'h:mm a')}</Text>
                   )}
                 </View>
-                <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
-                  <Ionicons name={style.icon as any} size={14} color={style.color} />
-                </View>
+                <Ionicons name={style.icon as any} size={16} color={style.color} />
               </Pressable>
             );
           })
@@ -130,9 +128,7 @@ export default function TodayScreen() {
                       <Text style={styles.eventTime}>{format(occurrenceDate, 'h:mm a')}</Text>
                     )}
                   </View>
-                  <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
-                    <Ionicons name={style.icon as any} size={14} color={style.color} />
-                  </View>
+                  <Ionicons name={style.icon as any} size={16} color={style.color} />
                 </Pressable>
               );
             })}
@@ -151,39 +147,37 @@ export default function TodayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { padding: spacing.xl, paddingBottom: 40 },
-  header: { marginBottom: spacing.xl },
-  greeting: { ...typography.greeting, color: colors.textSecondary },
-  date: { ...typography.screenTitle, marginTop: 2, color: colors.textPrimary },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  header: { marginBottom: 20 },
+  greeting: { fontSize: 15, color: '#8C8C90', fontWeight: '500' },
+  date: { fontSize: 26, fontWeight: '700', marginTop: 2, color: '#111113' },
   nextUpCard: {
-    backgroundColor: colors.surfaceDark,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    backgroundColor: '#111113',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
   },
-  nextUpLabel: { ...typography.label, color: '#B9BAC0' },
-  nextUpTitle: { ...typography.cardTitle, color: colors.textOnDark, marginTop: 6 },
-  nextUpTime: { color: colors.textOnDarkMuted, fontSize: 13, marginTop: 4 },
-  summaryRow: { flexDirection: 'row', gap: spacing.sm + 2, marginBottom: spacing.xxl },
-  summaryPill: { flex: 1, backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.lg - 2, alignItems: 'center' },
-  summaryNumber: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
-  summaryLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md - 2 },
-  sectionHeader: { ...typography.sectionHeader, color: colors.textPrimary, marginBottom: spacing.md - 2 },
-  addButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-  emptyState: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
-  emptyText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 30 },
+  nextUpLabel: { color: '#B9BAC0', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  nextUpTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '600', marginTop: 6 },
+  nextUpTime: { color: '#D9D9DE', fontSize: 13, marginTop: 4 },
+  summaryRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  summaryPill: { flex: 1, backgroundColor: '#F5F5F7', borderRadius: 14, padding: 14, alignItems: 'center' },
+  summaryNumber: { fontSize: 24, fontWeight: '700', color: '#111113' },
+  summaryLabel: { fontSize: 12, color: '#8C8C90', marginTop: 2 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  sectionHeader: { fontSize: 16, fontWeight: '600', color: '#111113', marginBottom: 10 },
+  emptyState: { alignItems: 'center', paddingVertical: 24, gap: 8 },
+  emptyText: { fontSize: 13, color: '#8C8C90', textAlign: 'center', paddingHorizontal: 30 },
   eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: '#F5F5F7',
     borderLeftWidth: 4,
-    borderRadius: radii.sm,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
   },
-  eventTitle: { ...typography.body, color: colors.textPrimary },
-  eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  eventTitle: { fontSize: 14, fontWeight: '500', color: '#111113' },
+  eventTime: { fontSize: 12, color: '#8C8C90', marginTop: 2 },
 });
