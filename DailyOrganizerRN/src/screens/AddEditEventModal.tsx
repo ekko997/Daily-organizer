@@ -9,6 +9,8 @@ import { CloudEvent, upsertCloudEvent, deleteCloudEvent } from '../services/clou
 import { scheduleReminder, cancelReminder } from '../services/notificationService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
+import { capitalizeFirst } from '../utils/textUtils';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   visible: boolean;
@@ -32,6 +34,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [category, setCategory] = useState<EventCategory>('personal');
   const [recurrence, setRecurrence] = useState<RecurrenceRule>('none');
   const [reminderMinutes, setReminderMinutes] = useState(30);
+  const [selectedScope, setSelectedScope] = useState<'personal' | 'family'>('personal');
+  const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -51,7 +55,9 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setCategory('personal');
         setRecurrence('none');
         setReminderMinutes(30);
+        setSelectedScope(activeScope);
       }
+      setScopeDropdownOpen(false);
     }
   }, [visible, editingEventId]);
 
@@ -63,8 +69,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   async function handleSave() {
     if (!title.trim() || !user) return;
     // Editing keeps the event's original scope/owner; new events use whichever
-    // calendar (Personal / Family) is currently selected on the Calendar tab.
-    const scope = editingEvent?.scope ?? activeScope;
+    // calendar (Personal / Family) was picked in this form.
+    const scope = editingEvent?.scope ?? selectedScope;
     const event: CloudEvent = {
       id: editingEvent?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       title: title.trim(),
@@ -110,12 +116,32 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         </View>
 
         {!editingEvent && (
-          <View style={styles.scopeNote}>
-            <Text style={styles.scopeNoteText}>
-              Adding to: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
-                {activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}
-              </Text>
-            </Text>
+          <View style={styles.scopeWrapper}>
+            <Text style={styles.sectionLabel}>Adding to</Text>
+            <Pressable style={styles.scopeButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
+              <Ionicons name={selectedScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
+              <Text style={styles.scopeButtonText}>{selectedScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
+              <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            </Pressable>
+
+            {scopeDropdownOpen && (
+              <View style={styles.scopeDropdown}>
+                <Pressable
+                  style={[styles.scopeDropdownRow, selectedScope === 'personal' && styles.scopeDropdownRowSelected]}
+                  onPress={() => { setSelectedScope('personal'); setScopeDropdownOpen(false); }}
+                >
+                  <Ionicons name="person" size={16} color={colors.textSecondary} />
+                  <Text style={styles.scopeDropdownText}>Personal</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.scopeDropdownRow, styles.scopeDropdownDivider, selectedScope === 'family' && styles.scopeDropdownRowSelected]}
+                  onPress={() => { setSelectedScope('family'); setScopeDropdownOpen(false); }}
+                >
+                  <Ionicons name="people" size={16} color={colors.textSecondary} />
+                  <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
@@ -124,7 +150,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           placeholder="Title"
           placeholderTextColor={colors.textSecondary}
           value={title}
-          onChangeText={setTitle}
+          onChangeText={text => setTitle(capitalizeFirst(text))}
         />
         <TextInput
           style={[styles.input, { height: 70 }]}
@@ -208,8 +234,36 @@ function makeStyles(colors: ThemeColors) {
     title: { ...typography.body, fontSize: 16, color: colors.textPrimary },
     cancel: { color: colors.textSecondary, fontSize: 15 },
     save: { color: colors.accent, fontSize: 15, fontWeight: '700' },
-    scopeNote: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },
-    scopeNoteText: { fontSize: 13, color: colors.textSecondary },
+    scopeWrapper: { position: 'relative', zIndex: 20, marginBottom: spacing.md },
+    scopeButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radii.sm,
+      padding: spacing.md,
+    },
+    scopeButtonText: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    scopeDropdown: {
+      position: 'absolute',
+      top: 68,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.background,
+      borderRadius: radii.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 6,
+      paddingVertical: spacing.xs,
+    },
+    scopeDropdownRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md },
+    scopeDropdownDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+    scopeDropdownRowSelected: { backgroundColor: colors.surface },
+    scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
     label: { fontSize: 15, color: colors.textPrimary },

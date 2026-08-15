@@ -8,12 +8,17 @@ import { SUPPORTED_COUNTRIES } from '../services/holidayService';
 import { searchCity, CitySearchResult } from '../services/weatherService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme, ThemePreference } from '../utils/ThemeContext';
+import { capitalizeFirst } from '../utils/textUtils';
 
 const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] = [
   { label: 'Light', value: 'light', icon: 'sunny' },
   { label: 'Dark', value: 'dark', icon: 'moon' },
   { label: 'System', value: 'system', icon: 'phone-portrait' },
 ];
+
+// Countries where Nager.Date's holiday data actually varies by state/province.
+// The region field is only useful (and shown) for these.
+const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU', 'DE']);
 
 export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation } = useEvents();
@@ -73,7 +78,7 @@ export default function SettingsScreen() {
               <TextInput
                 style={[styles.input, { flex: 1, marginBottom: 0 }]}
                 value={familyNameDraft}
-                onChangeText={setFamilyNameDraft}
+                onChangeText={text => setFamilyNameDraft(capitalizeFirst(text))}
                 placeholder="Family name"
                 placeholderTextColor={colors.textSecondary}
                 autoFocus
@@ -158,15 +163,19 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Region / state code (optional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g. US-CA"
-          placeholderTextColor={colors.textSecondary}
-          value={region}
-          onChangeText={setRegion}
-          autoCapitalize="characters"
-        />
+        {COUNTRIES_WITH_REGIONS.has(countryCode) && (
+          <>
+            <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Region / state code (optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. US-CA"
+              placeholderTextColor={colors.textSecondary}
+              value={region}
+              onChangeText={setRegion}
+              autoCapitalize="characters"
+            />
+          </>
+        )}
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Weather location</Text>
         <Text style={styles.helperText}>

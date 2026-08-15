@@ -4,6 +4,7 @@ import { useFamily } from '../utils/FamilyContext';
 import { useAuth } from '../utils/AuthContext';
 import { useTheme } from '../utils/ThemeContext';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { capitalizeFirst } from '../utils/textUtils';
 
 export default function FamilySetupScreen() {
   const { createFamily, joinFamily } = useFamily();
@@ -75,7 +76,7 @@ export default function FamilySetupScreen() {
                 placeholder="The Smiths"
                 placeholderTextColor={colors.textSecondary}
                 value={familyName}
-                onChangeText={setFamilyName}
+                onChangeText={text => setFamilyName(capitalizeFirst(text))}
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <Pressable style={styles.submitButton} onPress={handleCreate} disabled={loading}>
