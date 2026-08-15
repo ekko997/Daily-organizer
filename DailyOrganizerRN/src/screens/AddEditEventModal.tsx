@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { OrganizerEvent, EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
 import { useEvents } from '../utils/EventsContext';
 import { upsertEvent, deleteEvent as deleteEventFromStorage } from '../services/storageService';
 import { scheduleReminder, cancelReminder } from '../services/notificationService';
-import { colors, spacing, radii, typography } from '../utils/theme';
+import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { useTheme } from '../utils/ThemeContext';
 
 interface Props {
   visible: boolean;
@@ -16,6 +17,8 @@ interface Props {
 
 export default function AddEditEventModal({ visible, onClose, initialDate, editingEventId }: Props) {
   const { events, refreshEvents } = useEvents();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const editingEvent = events.find(e => e.id === editingEventId) || null;
 
   const [title, setTitle] = useState('');
@@ -128,7 +131,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
                 onPress={() => pickCategory(cat)}
                 style={[styles.chip, { borderColor: style.color }, selected && { backgroundColor: style.color }]}
               >
-                <Text style={{ color: selected ? colors.textOnDark : style.color, fontSize: 13, fontWeight: '500' }}>{style.label}</Text>
+                <Text style={{ color: selected ? colors.white : style.color, fontSize: 13, fontWeight: '500' }}>{style.label}</Text>
               </Pressable>
             );
           })}
@@ -170,18 +173,20 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  title: { ...typography.body, fontSize: 16, color: colors.textPrimary },
-  cancel: { color: colors.textSecondary, fontSize: 15 },
-  save: { color: colors.accent, fontSize: 15, fontWeight: '700' },
-  input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-  label: { fontSize: 15, color: colors.textPrimary },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
-  chip: { borderWidth: 1.5, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm - 2 },
-  deleteButton: { marginTop: spacing.xxl, alignItems: 'center', padding: spacing.md },
-  deleteText: { color: colors.holiday, fontSize: 15, fontWeight: '600' },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
+    title: { ...typography.body, fontSize: 16, color: colors.textPrimary },
+    cancel: { color: colors.textSecondary, fontSize: 15 },
+    save: { color: colors.accent, fontSize: 15, fontWeight: '700' },
+    input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+    label: { fontSize: 15, color: colors.textPrimary },
+    sectionLabel: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.sm },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm },
+    chip: { borderWidth: 1.5, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm - 2 },
+    deleteButton: { marginTop: spacing.xxl, alignItems: 'center', padding: spacing.md },
+    deleteText: { color: colors.holiday, fontSize: 15, fontWeight: '600' },
+  });
+}

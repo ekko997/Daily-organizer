@@ -7,13 +7,16 @@ import { gridDates, isSameDay, dayStart, isoDateKey } from '../utils/dateUtils';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { loadHolidays, PublicHoliday } from '../services/holidayService';
 import { CATEGORY_STYLES } from '../models/Event';
-import { colors, spacing, radii, typography } from '../utils/theme';
+import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function CalendarScreen() {
   const { events, countryCode, region } = useEvents();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [holidays, setHolidays] = useState<Map<string, PublicHoliday>>(new Map());
@@ -97,7 +100,7 @@ export default function CalendarScreen() {
       <View style={styles.detailHeader}>
         <Text style={styles.detailDate}>{format(selectedDate, 'EEEE, MMMM d')}</Text>
         <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
-          <Ionicons name="add" size={20} color={colors.textOnDark} />
+          <Ionicons name="add" size={20} color={colors.white} />
         </Pressable>
       </View>
 
@@ -115,7 +118,7 @@ export default function CalendarScreen() {
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="calendar-clear-outline" size={26} color="#C6C6CB" />
+            <Ionicons name="calendar-clear-outline" size={26} color={colors.textSecondary} />
             <Text style={styles.emptyText}>Nothing scheduled — tap + to add something</Text>
           </View>
         }
@@ -150,44 +153,46 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: spacing.xl, paddingTop: spacing.md },
-  eyebrow: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 2 },
-  monthLabel: { ...typography.screenTitle, color: colors.textPrimary },
-  monthNav: { flexDirection: 'row', gap: spacing.sm },
-  navButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  weekdayRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg },
-  weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingTop: spacing.xs },
-  dayCell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 4 },
-  dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  dayCircleSelected: { backgroundColor: colors.surfaceDark },
-  dayCircleHoliday: { backgroundColor: colors.holidayBg },
-  dayCircleToday: { borderWidth: 1.5, borderColor: colors.surfaceDark },
-  dayText: { fontSize: 15, color: colors.textPrimary },
-  dayTextSelected: { color: colors.textOnDark, fontWeight: '600' },
-  dayTextHoliday: { color: colors.holiday, fontWeight: '600' },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent, marginTop: 3 },
-  divider: { height: 1, backgroundColor: colors.border, marginTop: spacing.lg },
-  detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
-  detailDate: { ...typography.cardTitle, fontSize: 16, color: colors.textPrimary },
-  addButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-  holidayBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
-  holidayText: { fontSize: 14, fontWeight: '500', flex: 1, color: colors.textPrimary },
-  holidaySubtext: { fontSize: 12, color: colors.textSecondary },
-  emptyState: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
-  emptyText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderLeftWidth: 4,
-    borderRadius: radii.sm,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  eventTitle: { ...typography.body, color: colors.textPrimary },
-  eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: spacing.xl, paddingTop: spacing.md },
+    eyebrow: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 2 },
+    monthLabel: { ...typography.screenTitle, color: colors.textPrimary },
+    monthNav: { flexDirection: 'row', gap: spacing.sm },
+    navButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+    weekdayRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg },
+    weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingTop: spacing.xs },
+    dayCell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 4 },
+    dayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+    dayCircleSelected: { backgroundColor: colors.surfaceDark },
+    dayCircleHoliday: { backgroundColor: colors.holidayBg },
+    dayCircleToday: { borderWidth: 1.5, borderColor: colors.surfaceDark },
+    dayText: { fontSize: 15, color: colors.textPrimary },
+    dayTextSelected: { color: colors.textOnDark, fontWeight: '600' },
+    dayTextHoliday: { color: colors.holiday, fontWeight: '600' },
+    dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent, marginTop: 3 },
+    divider: { height: 1, backgroundColor: colors.border, marginTop: spacing.lg },
+    detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.sm },
+    detailDate: { ...typography.cardTitle, fontSize: 16, color: colors.textPrimary },
+    addButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+    holidayBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
+    holidayText: { fontSize: 14, fontWeight: '500', flex: 1, color: colors.textPrimary },
+    holidaySubtext: { fontSize: 12, color: colors.textSecondary },
+    emptyState: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
+    emptyText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
+    eventRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderLeftWidth: 4,
+      borderRadius: radii.sm,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    eventTitle: { ...typography.body, color: colors.textPrimary },
+    eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+    categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  });
+}

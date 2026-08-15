@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Localization from 'expo-localization';
@@ -11,13 +11,15 @@ import CalendarScreen from './src/screens/CalendarScreen';
 import AgendaScreen from './src/screens/AgendaScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { EventsContext } from './src/utils/EventsContext';
+import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
-export default function App() {
+function AppContent() {
   const [events, setEvents] = useState<OrganizerEvent[]>([]);
   const [countryCode, setCountryCode] = useState<string>(Localization.getLocales()[0]?.regionCode || 'US');
   const [region, setRegion] = useState<string>('');
+  const { colors, mode } = useTheme();
 
   const refreshEvents = useCallback(async () => {
     setEvents(await loadEvents());
@@ -28,10 +30,29 @@ export default function App() {
     refreshEvents();
   }, [refreshEvents]);
 
+  const navTheme = {
+    ...(mode === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(mode === 'dark' ? DarkTheme.colors : DefaultTheme.colors),
+      background: colors.background,
+      card: colors.background,
+      border: colors.border,
+      text: colors.textPrimary,
+      primary: colors.accent,
+    },
+  };
+
   return (
     <EventsContext.Provider value={{ events, refreshEvents, countryCode, setCountryCode, region, setRegion }}>
-      <NavigationContainer>
-        <Tab.Navigator initialRouteName="Today" screenOptions={{ tabBarActiveTintColor: '#5973E6' }}>
+      <NavigationContainer theme={navTheme}>
+        <Tab.Navigator
+          initialRouteName="Today"
+          screenOptions={{
+            tabBarActiveTintColor: colors.accent,
+            tabBarInactiveTintColor: colors.textSecondary,
+            tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
+          }}
+        >
           <Tab.Screen
             name="Today"
             component={TodayScreen}
@@ -55,5 +76,13 @@ export default function App() {
         </Tab.Navigator>
       </NavigationContainer>
     </EventsContext.Provider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

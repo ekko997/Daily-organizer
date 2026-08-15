@@ -5,11 +5,14 @@ import { format, addYears, startOfToday } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
-import { colors, spacing, radii, typography } from '../utils/theme';
+import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
 
 export default function AgendaScreen() {
   const { events } = useEvents();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
@@ -43,7 +46,7 @@ export default function AgendaScreen() {
       <Text style={styles.header}>Agenda</Text>
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="calendar-outline" size={36} color="#C6C6CB" />
+          <Ionicons name="calendar-outline" size={36} color={colors.textSecondary} />
           <Text style={styles.emptyText}>No events yet</Text>
           <Text style={styles.emptySubtext}>Add one from the Calendar tab</Text>
         </View>
@@ -83,15 +86,17 @@ export default function AgendaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { ...typography.screenTitle, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm, color: colors.textPrimary },
-  sectionHeader: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.xs },
-  categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  rowTitle: { ...typography.body, color: colors.textPrimary },
-  rowTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  emptyText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
-  emptySubtext: { fontSize: 13, color: colors.textSecondary },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { ...typography.screenTitle, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm, color: colors.textPrimary },
+    sectionHeader: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
+    row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.xs },
+    categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    rowTitle: { ...typography.body, color: colors.textPrimary },
+    rowTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+    emptyText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+    emptySubtext: { fontSize: 13, color: colors.textSecondary },
+  });
+}
