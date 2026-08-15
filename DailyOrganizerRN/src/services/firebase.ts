@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeAuth, getAuth, Auth } from 'firebase/auth';
 // @ts-ignore — this RN-specific persistence helper exists at runtime even if types lag behind
 import { getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // PASTE YOUR FIREBASE CONFIG HERE — from Firebase Console → Project Settings → General → Your apps
@@ -27,4 +27,12 @@ try {
 }
 
 export const auth = authInstance;
-export const db = getFirestore(app);
+
+// Firestore's default connection method (WebChannel/gRPC) can silently hang
+// with no error on certain networks (some WiFi routers, VPNs, corporate
+// networks). Forcing long-polling is the standard, well-documented fix —
+// it's slightly less efficient but far more reliable across networks.
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+});
