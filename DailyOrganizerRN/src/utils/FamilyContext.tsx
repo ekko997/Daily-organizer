@@ -44,15 +44,35 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     }
     setLoading(true);
     setLoadError(null);
+    let settled = false;
+
+    // Firestore can occasionally hang with no error and no result on some
+    // networks — this guarantees the screen never gets stuck indefinitely.
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        setLoadError('This is taking too long. Check your internet connection and try again.');
+        setLoading(false);
+      }
+    }, 10000);
+
     getUserFamilyId(user.uid)
       .then(id => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
         setFamilyId(id);
         if (!id) setLoading(false);
       })
       .catch(err => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
         setLoadError(err?.message ?? 'Failed to load account data.');
         setLoading(false);
       });
+
+    return () => clearTimeout(timeout);
   }, [user]);
 
   useEffect(() => {

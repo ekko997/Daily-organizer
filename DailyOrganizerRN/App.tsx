@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import * as Localization from 'expo-localization';
 import { requestNotificationPermission } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
@@ -20,14 +20,29 @@ import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
 
 const Tab = createBottomTabNavigator();
 
-function LoadingScreen({ error }: { error?: string | null }) {
+function LoadingScreen({ error, showSignOut }: { error?: string | null; showSignOut?: boolean }) {
   const { colors } = useTheme();
+  const { signOut } = useAuth();
+  const [showEscape, setShowEscape] = useState(false);
+
+  useEffect(() => {
+    // If we're stuck spinning (no error yet) for more than a few seconds,
+    // reveal a sign-out option so this screen is never a dead end.
+    const timer = setTimeout(() => setShowEscape(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24, gap: 20 }}>
       {error ? (
         <Text style={{ color: colors.holiday, textAlign: 'center', fontSize: 14 }}>{error}</Text>
       ) : (
         <ActivityIndicator color={colors.accent} size="large" />
+      )}
+      {(showSignOut || error || showEscape) && (
+        <Pressable onPress={signOut}>
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Sign out and try again</Text>
+        </Pressable>
       )}
     </View>
   );
