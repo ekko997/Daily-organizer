@@ -18,7 +18,7 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] =
 
 // Countries where Nager.Date's holiday data actually varies by state/province.
 // The region field is only useful (and shown) for these.
-const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU', 'DE']);
+const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 
 export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation } = useEvents();
