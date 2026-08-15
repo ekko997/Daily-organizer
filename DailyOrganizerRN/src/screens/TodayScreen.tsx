@@ -1,6 +1,3 @@
-cat /home/claude/DailyOrganizerRN/src/screens/TodayScreen.tsx
-Output
-
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
