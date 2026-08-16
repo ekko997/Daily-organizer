@@ -1,4 +1,4 @@
-export type EventCategory = 'work' | 'appointment' | 'birthday' | 'anniversary' | 'personal' | 'reminder';
+export type EventCategory = 'work' | 'meeting' | 'appointment' | 'birthday' | 'anniversary' | 'personal' | 'reminder';
 export type RecurrenceRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 export interface CategoryStyle {
@@ -9,6 +9,7 @@ export interface CategoryStyle {
 
 export const CATEGORY_STYLES: Record<EventCategory, CategoryStyle> = {
   work: { label: 'Work', color: '#5973E6', icon: 'briefcase' },
+  meeting: { label: 'Meeting', color: '#3AA0D9', icon: 'videocam' },
   appointment: { label: 'Appointment', color: '#33A69A', icon: 'time' },
   birthday: { label: 'Birthday', color: '#F28C59', icon: 'gift' },
   anniversary: { label: 'Anniversary', color: '#D9598C', icon: 'heart' },

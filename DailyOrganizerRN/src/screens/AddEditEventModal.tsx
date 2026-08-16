@@ -47,6 +47,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [selectedScope, setSelectedScope] = useState<'personal' | 'family'>('personal');
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
   const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
+  const [titleError, setTitleError] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -74,6 +75,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       }
       setScopeDropdownOpen(false);
       setDeleteChoiceOpen(false);
+      setTitleError(false);
     }
   }, [visible, editingEventId]);
 
@@ -81,10 +83,23 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
     haptics.light();
     setCategory(cat);
     if (defaultsToYearlyRecurrence(cat)) setRecurrence('yearly');
+    // Meeting link only makes sense for the Meeting category — clear it if
+    // switching away, so a stale link doesn't silently get saved.
+    if (cat !== 'meeting') setMeetingLink('');
   }
 
   async function handleSave() {
-    if (!title.trim() || !user) return;
+    if (!title.trim()) {
+      setTitleError(true);
+      haptics.warning();
+      showToast({ message: 'Give this event a title before saving' });
+      return;
+    }
+    if (!user) {
+      showToast({ message: "Couldn't save — you're not signed in. Try signing out and back in." });
+      return;
+    }
+    setTitleError(false);
     // Editing keeps the event's original scope/owner; new events use whichever
     // calendar (Personal / Family) was picked in this form.
     const scope = editingEvent?.scope ?? selectedScope;
@@ -93,7 +108,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       title: title.trim(),
       notes,
       location: location.trim() || undefined,
-      meetingLink: meetingLink.trim() || undefined,
+      meetingLink: category === 'meeting' ? (meetingLink.trim() || undefined) : undefined,
       date: date.toISOString(),
       isAllDay,
       category,
@@ -169,9 +184,9 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           keyboardShouldPersistTaps="handled"
         >
         <View style={styles.headerRow}>
-          <Pressable onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
+          <Pressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
-          <Pressable onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
+          <Pressable style={styles.saveButton} onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
         </View>
 
         {!editingEvent && (
@@ -205,15 +220,17 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         )}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, titleError && styles.inputError]}
           placeholder="Title"
           placeholderTextColor={colors.textSecondary}
           value={title}
-          onChangeText={text => setTitle(capitalizeFirst(text))}
+          onChangeText={text => { setTitle(capitalizeFirst(text)); if (titleError) setTitleError(false); }}
         />
+        {titleError && <Text style={styles.fieldErrorText}>A title is required</Text>}
+
         <TextInput
           style={[styles.input, { height: 70 }]}
-          placeholder="Notes"
+          placeholder="Notes (optional)"
           placeholderTextColor={colors.textSecondary}
           value={notes}
           onChangeText={setNotes}
@@ -223,7 +240,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         <View style={styles.inlineFieldRow}>
           <TextInput
             style={[styles.input, { flex: 1, marginBottom: 0 }]}
-            placeholder="Location"
+            placeholder="Location (optional)"
             placeholderTextColor={colors.textSecondary}
             value={location}
             onChangeText={setLocation}
@@ -235,22 +252,24 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           )}
         </View>
 
-        <View style={[styles.inlineFieldRow, { marginTop: spacing.md }]}>
-          <TextInput
-            style={[styles.input, { flex: 1, marginBottom: 0 }]}
-            placeholder="Meeting link (Zoom, Teams...)"
-            placeholderTextColor={colors.textSecondary}
-            value={meetingLink}
-            onChangeText={setMeetingLink}
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-          {meetingLink.trim().length > 0 && (
-            <Pressable style={styles.inlineFieldButton} onPress={openMeetingLink}>
-              <Ionicons name="videocam" size={18} color={colors.accent} />
-            </Pressable>
-          )}
-        </View>
+        {category === 'meeting' && (
+          <View style={[styles.inlineFieldRow, { marginTop: spacing.md }]}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Meeting link (Zoom, Teams...)"
+              placeholderTextColor={colors.textSecondary}
+              value={meetingLink}
+              onChangeText={setMeetingLink}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+            {meetingLink.trim().length > 0 && (
+              <Pressable style={styles.inlineFieldButton} onPress={openMeetingLink}>
+                <Ionicons name="videocam" size={18} color={colors.accent} />
+              </Pressable>
+            )}
+          </View>
+        )}
 
         <View style={[styles.row, { marginTop: spacing.md }]}>
           <Text style={styles.label}>All day</Text>
@@ -338,8 +357,10 @@ function makeStyles(colors: ThemeColors) {
     container: { flex: 1, backgroundColor: colors.background },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
     title: { ...typography.body, fontSize: 16, color: colors.textPrimary },
-    cancel: { color: colors.textSecondary, fontSize: 15 },
-    save: { color: colors.accent, fontSize: 15, fontWeight: '700' },
+    cancelButton: { backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+    cancel: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+    saveButton: { backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+    save: { color: colors.white, fontSize: 14, fontWeight: '700' },
     scopeWrapper: { position: 'relative', zIndex: 20, marginBottom: spacing.md },
     scopeButton: {
       flexDirection: 'row',
@@ -371,6 +392,8 @@ function makeStyles(colors: ThemeColors) {
     scopeDropdownRowSelected: { backgroundColor: colors.surface },
     scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
+    inputError: { borderWidth: 1.5, borderColor: colors.holiday },
+    fieldErrorText: { color: colors.holiday, fontSize: 12, marginTop: -spacing.sm, marginBottom: spacing.md },
     inlineFieldRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     inlineFieldButton: { width: 44, height: 44, borderRadius: radii.sm, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
