@@ -38,6 +38,9 @@ export interface OrganizerEvent {
   createdAt: string;
   location?: string;
   meetingLink?: string;
+  // uid of the family member this event belongs to (only meaningful for
+  // scope: 'family' events) — lets a shared calendar show whose appointment it is.
+  assignedTo?: string;
   // ISO yyyy-MM-dd dates of individual occurrences removed from a recurring
   // series (e.g. "skip this one week" without deleting the whole series).
   excludedDates?: string[];

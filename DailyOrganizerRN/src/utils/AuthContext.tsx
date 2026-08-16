@@ -6,7 +6,8 @@ import {
   signOut as firebaseSignOut,
   User,
 } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 
 interface AuthContextValue {
   user: User | null;
@@ -32,6 +33,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, u => {
       setUser(u);
       setInitializing(false);
+      // Keep the user's profile doc (used to show family members' emails)
+      // up to date on every sign-in — also backfills accounts created
+      // before this existed.
+      if (u?.email) {
+        setDoc(doc(db, 'users', u.uid), { email: u.email }, { merge: true }).catch(() => {});
+      }
     });
     return unsubscribe;
   }, []);

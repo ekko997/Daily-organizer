@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share } from 'react-native';
+import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -9,6 +9,8 @@ import { searchCity, CitySearchResult } from '../services/weatherService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme, ThemePreference } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
+import { useToast } from '../utils/ToastContext';
+import { haptics } from '../utils/haptics';
 
 const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] = [
   { label: 'Light', value: 'light', icon: 'sunny' },
@@ -23,8 +25,9 @@ const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation } = useEvents();
   const { user, signOut } = useAuth();
-  const { family, renameFamily } = useFamily();
+  const { family, members, renameFamily, removeMember, leaveFamily } = useFamily();
   const { colors, mode, preference, setPreference } = useTheme();
+  const { showToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [cityQuery, setCityQuery] = useState('');
@@ -44,6 +47,44 @@ export default function SettingsScreen() {
   async function handleShareCode() {
     if (!family) return;
     await Share.share({ message: `Join our family calendar on Daily Organizer! Invite code: ${family.inviteCode}` });
+  }
+
+  function handleRemoveMember(uid: string, email: string) {
+    Alert.alert(
+      'Remove member?',
+      `${email} will lose access to this family calendar. Their events on it will stay, but they won't be able to see or edit them anymore.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            haptics.warning();
+            await removeMember(uid);
+            showToast({ message: `${email} removed from the family` });
+          },
+        },
+      ]
+    );
+  }
+
+  function handleLeaveFamily() {
+    Alert.alert(
+      'Leave this family?',
+      "You'll lose access to the shared calendar. You can rejoin later with the invite code if someone shares it with you again.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            haptics.warning();
+            await leaveFamily();
+            showToast({ message: 'You left the family' });
+          },
+        },
+      ]
+    );
   }
 
   async function handleCitySearch() {
@@ -103,8 +144,25 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
 
-          <Text style={styles.memberCount}>{family?.members.length || 1} member{(family?.members.length || 1) !== 1 ? 's' : ''}</Text>
+          <Text style={styles.memberListLabel}>Members</Text>
+          {members.map(m => (
+            <View key={m.uid} style={styles.memberRow}>
+              <Ionicons name="person-circle-outline" size={18} color={colors.textSecondary} />
+              <Text style={styles.memberEmail} numberOfLines={1}>
+                {m.email}{m.uid === user?.uid ? ' (you)' : ''}{m.uid === family?.createdBy ? ' · Creator' : ''}
+              </Text>
+              {family?.createdBy === user?.uid && m.uid !== user?.uid && (
+                <Pressable onPress={() => handleRemoveMember(m.uid, m.email)}>
+                  <Ionicons name="close-circle" size={18} color={colors.holiday} />
+                </Pressable>
+              )}
+            </View>
+          ))}
         </View>
+
+        <Pressable style={styles.leaveButton} onPress={handleLeaveFamily}>
+          <Text style={styles.signOutText}>Leave this family</Text>
+        </Pressable>
 
         <Pressable style={styles.signOutButton} onPress={signOut}>
           <Text style={styles.signOutText}>Sign out{user?.email ? ` (${user.email})` : ''}</Text>
@@ -315,6 +373,10 @@ function makeStyles(colors: ThemeColors) {
     shareButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
     shareButtonText: { color: colors.white, fontSize: 13, fontWeight: '600' },
     memberCount: { fontSize: 12, color: colors.textSecondary, marginTop: spacing.md },
+    memberListLabel: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
+    memberRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
+    memberEmail: { flex: 1, fontSize: 13, color: colors.textPrimary },
+    leaveButton: { alignItems: 'center', padding: spacing.sm, marginTop: spacing.sm },
     signOutButton: { alignItems: 'center', padding: spacing.sm },
     signOutText: { color: colors.holiday, fontSize: 13, fontWeight: '600' },
   });

@@ -7,31 +7,42 @@ import {
   joinFamily as joinFamilyService,
   getUserFamilyId,
   renameFamily as renameFamilyService,
+  removeMember as removeMemberService,
+  leaveFamily as leaveFamilyService,
+  getMemberProfiles,
   FamilyDoc,
+  MemberProfile,
 } from '../services/familyService';
 
 interface FamilyContextValue {
   family: FamilyDoc | null;
+  members: MemberProfile[];
   loading: boolean;
   loadError: string | null;
   createFamily: (name: string) => Promise<void>;
   joinFamily: (code: string) => Promise<boolean>;
   renameFamily: (name: string) => Promise<void>;
+  removeMember: (uid: string) => Promise<void>;
+  leaveFamily: () => Promise<void>;
 }
 
 const FamilyContext = createContext<FamilyContextValue>({
   family: null,
+  members: [],
   loading: true,
   loadError: null,
   createFamily: async () => {},
   joinFamily: async () => false,
   renameFamily: async () => {},
+  removeMember: async () => {},
+  leaveFamily: async () => {},
 });
 
 export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [family, setFamily] = useState<FamilyDoc | null>(null);
+  const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -76,11 +87,24 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   useEffect(() => {
-    if (!familyId) return;
+    if (!familyId) {
+      setFamily(null);
+      setMembers([]);
+      return;
+    }
     const unsubscribe = onSnapshot(
       doc(db, 'families', familyId),
-      snap => {
-        if (snap.exists()) setFamily({ id: snap.id, ...(snap.data() as any) });
+      async snap => {
+        if (snap.exists()) {
+          const data = { id: snap.id, ...(snap.data() as any) } as FamilyDoc;
+          setFamily(data);
+          try {
+            setMembers(await getMemberProfiles(data.members));
+          } catch {
+            // Non-fatal — the family itself still loaded fine even if member
+            // emails fail to fetch for some reason.
+          }
+        }
         setLoading(false);
       },
       err => {
@@ -112,8 +136,21 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     await renameFamilyService(familyId, name);
   }, [familyId]);
 
+  const removeMember = useCallback(async (uid: string) => {
+    if (!familyId) return;
+    await removeMemberService(familyId, uid);
+  }, [familyId]);
+
+  const leaveFamily = useCallback(async () => {
+    if (!familyId || !user) return;
+    await leaveFamilyService(familyId, user.uid);
+    setFamilyId(null);
+    setFamily(null);
+    setMembers([]);
+  }, [familyId, user]);
+
   return (
-    <FamilyContext.Provider value={{ family, loading, loadError, createFamily, joinFamily, renameFamily }}>
+    <FamilyContext.Provider value={{ family, members, loading, loadError, createFamily, joinFamily, renameFamily, removeMember, leaveFamily }}>
       {children}
     </FamilyContext.Provider>
   );

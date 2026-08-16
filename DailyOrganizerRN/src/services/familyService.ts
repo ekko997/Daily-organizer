@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, getDocs as getDocsCollection, setDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, documentId } from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface FamilyDoc {
@@ -7,6 +7,11 @@ export interface FamilyDoc {
   inviteCode: string;
   members: string[];
   createdBy: string;
+}
+
+export interface MemberProfile {
+  uid: string;
+  email: string;
 }
 
 // Excludes visually ambiguous characters (0/O, 1/I) so codes are easy to read aloud or type.
@@ -29,7 +34,7 @@ export async function createFamily(uid: string, name: string): Promise<FamilyDoc
 
 export async function joinFamily(uid: string, inviteCode: string): Promise<FamilyDoc | null> {
   const q = query(collection(db, 'families'), where('inviteCode', '==', inviteCode.toUpperCase().trim()));
-  const snap = await getDocs(q);
+  const snap = await getDocsCollection(q);
   if (snap.empty) return null;
   const familyDoc = snap.docs[0];
   await updateDoc(familyDoc.ref, { members: arrayUnion(uid) });
@@ -44,4 +49,25 @@ export async function getUserFamilyId(uid: string): Promise<string | null> {
 
 export async function renameFamily(familyId: string, name: string): Promise<void> {
   await updateDoc(doc(db, 'families', familyId), { name });
+}
+
+/** Removes a member from the family (creator-only action) — clears their familyId too. */
+export async function removeMember(familyId: string, memberUid: string): Promise<void> {
+  await updateDoc(doc(db, 'families', familyId), { members: arrayRemove(memberUid) });
+  await setDoc(doc(db, 'users', memberUid), { familyId: null }, { merge: true });
+}
+
+/** A member removing themselves from the family. */
+export async function leaveFamily(familyId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, 'families', familyId), { members: arrayRemove(uid) });
+  await setDoc(doc(db, 'users', uid), { familyId: null }, { merge: true });
+}
+
+/** Looks up email addresses for a list of member uids, for display in the member list. */
+export async function getMemberProfiles(uids: string[]): Promise<MemberProfile[]> {
+  if (uids.length === 0) return [];
+  // Firestore 'in' queries cap at 30 values, which comfortably covers a family.
+  const q = query(collection(db, 'users'), where(documentId(), 'in', uids.slice(0, 30)));
+  const snap = await getDocsCollection(q);
+  return snap.docs.map(d => ({ uid: d.id, email: d.data().email || 'Unknown' }));
 }

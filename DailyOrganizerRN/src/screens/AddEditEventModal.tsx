@@ -29,7 +29,7 @@ interface Props {
 export default function AddEditEventModal({ visible, onClose, initialDate, editingEventId, occurrenceDate }: Props) {
   const { events, activeScope } = useEvents();
   const { user } = useAuth();
-  const { family } = useFamily();
+  const { family, members } = useFamily();
   const { colors } = useTheme();
   const { showToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -46,8 +46,12 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [reminderMinutes, setReminderMinutes] = useState(30);
   const [selectedScope, setSelectedScope] = useState<'personal' | 'family'>('personal');
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
+  const [assignedTo, setAssignedTo] = useState<string | undefined>(undefined);
+  const [assignDropdownOpen, setAssignDropdownOpen] = useState(false);
   const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
   const [titleError, setTitleError] = useState(false);
+
+  const currentScope = editingEvent?.scope ?? selectedScope;
 
   useEffect(() => {
     if (visible) {
@@ -61,6 +65,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setCategory(editingEvent.category);
         setRecurrence(editingEvent.recurrence);
         setReminderMinutes(editingEvent.reminderMinutesBefore);
+        setAssignedTo(editingEvent.assignedTo);
       } else {
         setTitle('');
         setNotes('');
@@ -72,8 +77,10 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setRecurrence('none');
         setReminderMinutes(30);
         setSelectedScope(activeScope);
+        setAssignedTo(undefined);
       }
       setScopeDropdownOpen(false);
+      setAssignDropdownOpen(false);
       setDeleteChoiceOpen(false);
       setTitleError(false);
     }
@@ -118,6 +125,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       ownerId: editingEvent?.ownerId ?? user.uid,
       scope,
       familyId: scope === 'family' ? (family?.id ?? null) : null,
+      assignedTo: scope === 'family' ? assignedTo : undefined,
       excludedDates: editingEvent?.excludedDates,
     };
     try {
@@ -221,6 +229,39 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
                   <Ionicons name="people" size={16} color={colors.textSecondary} />
                   <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
                 </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+
+        {currentScope === 'family' && members.length > 0 && (
+          <View style={styles.scopeWrapper}>
+            <Text style={styles.sectionLabel}>Whose event is this?</Text>
+            <Pressable style={styles.scopeButton} onPress={() => setAssignDropdownOpen(!assignDropdownOpen)}>
+              <Ionicons name="person-circle-outline" size={16} color={colors.accent} />
+              <Text style={styles.scopeButtonText} numberOfLines={1}>
+                {assignedTo ? (members.find(m => m.uid === assignedTo)?.email ?? 'Unassigned') : 'Unassigned'}
+              </Text>
+              <Ionicons name={assignDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            </Pressable>
+
+            {assignDropdownOpen && (
+              <View style={styles.scopeDropdown}>
+                <Pressable
+                  style={[styles.scopeDropdownRow, !assignedTo && styles.scopeDropdownRowSelected]}
+                  onPress={() => { setAssignedTo(undefined); setAssignDropdownOpen(false); }}
+                >
+                  <Text style={styles.scopeDropdownText}>Unassigned</Text>
+                </Pressable>
+                {members.map((m, i) => (
+                  <Pressable
+                    key={m.uid}
+                    style={[styles.scopeDropdownRow, styles.scopeDropdownDivider, assignedTo === m.uid && styles.scopeDropdownRowSelected]}
+                    onPress={() => { setAssignedTo(m.uid); setAssignDropdownOpen(false); }}
+                  >
+                    <Text style={styles.scopeDropdownText} numberOfLines={1}>{m.email}{m.uid === user?.uid ? ' (you)' : ''}</Text>
+                  </Pressable>
+                ))}
               </View>
             )}
           </View>
