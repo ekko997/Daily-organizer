@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 import { EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -19,9 +20,13 @@ interface Props {
   onClose: () => void;
   initialDate: Date;
   editingEventId: string | null;
+  // The specific occurrence date the user tapped (only meaningful for a
+  // recurring event) — lets "delete this occurrence only" know which date
+  // to exclude, without affecting the rest of the series.
+  occurrenceDate?: Date;
 }
 
-export default function AddEditEventModal({ visible, onClose, initialDate, editingEventId }: Props) {
+export default function AddEditEventModal({ visible, onClose, initialDate, editingEventId, occurrenceDate }: Props) {
   const { events, activeScope } = useEvents();
   const { user } = useAuth();
   const { family } = useFamily();
@@ -32,6 +37,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [location, setLocation] = useState('');
+  const [meetingLink, setMeetingLink] = useState('');
   const [date, setDate] = useState(initialDate);
   const [isAllDay, setIsAllDay] = useState(false);
   const [category, setCategory] = useState<EventCategory>('personal');
@@ -39,12 +46,15 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [reminderMinutes, setReminderMinutes] = useState(30);
   const [selectedScope, setSelectedScope] = useState<'personal' | 'family'>('personal');
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
+  const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
       if (editingEvent) {
         setTitle(editingEvent.title);
         setNotes(editingEvent.notes);
+        setLocation(editingEvent.location || '');
+        setMeetingLink(editingEvent.meetingLink || '');
         setDate(new Date(editingEvent.date));
         setIsAllDay(editingEvent.isAllDay);
         setCategory(editingEvent.category);
@@ -53,6 +63,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       } else {
         setTitle('');
         setNotes('');
+        setLocation('');
+        setMeetingLink('');
         setDate(initialDate);
         setIsAllDay(false);
         setCategory('personal');
@@ -61,6 +73,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setSelectedScope(activeScope);
       }
       setScopeDropdownOpen(false);
+      setDeleteChoiceOpen(false);
     }
   }, [visible, editingEventId]);
 
@@ -79,6 +92,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       id: editingEvent?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       title: title.trim(),
       notes,
+      location: location.trim() || undefined,
+      meetingLink: meetingLink.trim() || undefined,
       date: date.toISOString(),
       isAllDay,
       category,
@@ -88,6 +103,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       ownerId: editingEvent?.ownerId ?? user.uid,
       scope,
       familyId: scope === 'family' ? (family?.id ?? null) : null,
+      excludedDates: editingEvent?.excludedDates,
     };
     await upsertCloudEvent(event);
     await scheduleReminder(event);
@@ -96,11 +112,48 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
     onClose();
   }
 
-  async function handleDelete() {
+  function handleDeletePress() {
+    if (!editingEvent) return;
+    // Only offer the "this occurrence only" choice when we actually know
+    // which occurrence was tapped, and it's a repeating event.
+    if (editingEvent.recurrence !== 'none' && occurrenceDate) {
+      setDeleteChoiceOpen(true);
+    } else {
+      handleDeleteSeries();
+    }
+  }
+
+  async function handleDeleteSeries() {
     if (!editingEvent) return;
     await cancelReminder(editingEvent.id);
     await deleteCloudEvent(editingEvent.id);
+    haptics.warning();
+    showToast({ message: 'Event series deleted' });
     onClose();
+  }
+
+  async function handleDeleteThisOccurrence() {
+    if (!editingEvent || !occurrenceDate) return;
+    const key = format(occurrenceDate, 'yyyy-MM-dd');
+    const updated: CloudEvent = {
+      ...editingEvent,
+      excludedDates: [...(editingEvent.excludedDates || []), key],
+    };
+    await upsertCloudEvent(updated);
+    haptics.warning();
+    showToast({ message: 'This occurrence removed' });
+    onClose();
+  }
+
+  function openLocation() {
+    if (!location.trim()) return;
+    Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(location.trim())}`);
+  }
+
+  function openMeetingLink() {
+    if (!meetingLink.trim()) return;
+    const url = meetingLink.trim().startsWith('http') ? meetingLink.trim() : `https://${meetingLink.trim()}`;
+    Linking.openURL(url);
   }
 
   return (
@@ -167,7 +220,39 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           multiline
         />
 
-        <View style={styles.row}>
+        <View style={styles.inlineFieldRow}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            placeholder="Location"
+            placeholderTextColor={colors.textSecondary}
+            value={location}
+            onChangeText={setLocation}
+          />
+          {location.trim().length > 0 && (
+            <Pressable style={styles.inlineFieldButton} onPress={openLocation}>
+              <Ionicons name="navigate" size={18} color={colors.accent} />
+            </Pressable>
+          )}
+        </View>
+
+        <View style={[styles.inlineFieldRow, { marginTop: spacing.md }]}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            placeholder="Meeting link (Zoom, Teams...)"
+            placeholderTextColor={colors.textSecondary}
+            value={meetingLink}
+            onChangeText={setMeetingLink}
+            autoCapitalize="none"
+            keyboardType="url"
+          />
+          {meetingLink.trim().length > 0 && (
+            <Pressable style={styles.inlineFieldButton} onPress={openMeetingLink}>
+              <Ionicons name="videocam" size={18} color={colors.accent} />
+            </Pressable>
+          )}
+        </View>
+
+        <View style={[styles.row, { marginTop: spacing.md }]}>
           <Text style={styles.label}>All day</Text>
           <Switch value={isAllDay} onValueChange={setIsAllDay} trackColor={{ true: colors.accent }} />
         </View>
@@ -222,10 +307,25 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           ))}
         </View>
 
-        {editingEvent && (
-          <Pressable style={styles.deleteButton} onPress={handleDelete}>
+        {editingEvent && !deleteChoiceOpen && (
+          <Pressable style={styles.deleteButton} onPress={handleDeletePress}>
             <Text style={styles.deleteText}>Delete Event</Text>
           </Pressable>
+        )}
+
+        {editingEvent && deleteChoiceOpen && (
+          <View style={styles.deleteChoiceBox}>
+            <Text style={styles.deleteChoiceLabel}>This is a repeating event — what do you want to delete?</Text>
+            <Pressable style={styles.deleteChoiceButton} onPress={handleDeleteThisOccurrence}>
+              <Text style={styles.deleteText}>Just this occurrence</Text>
+            </Pressable>
+            <Pressable style={styles.deleteChoiceButton} onPress={handleDeleteSeries}>
+              <Text style={styles.deleteText}>The entire series</Text>
+            </Pressable>
+            <Pressable style={styles.deleteChoiceButton} onPress={() => setDeleteChoiceOpen(false)}>
+              <Text style={{ color: colors.textSecondary, fontSize: 15 }}>Cancel</Text>
+            </Pressable>
+          </View>
         )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -271,6 +371,8 @@ function makeStyles(colors: ThemeColors) {
     scopeDropdownRowSelected: { backgroundColor: colors.surface },
     scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
+    inlineFieldRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    inlineFieldButton: { width: 44, height: 44, borderRadius: radii.sm, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
     label: { fontSize: 15, color: colors.textPrimary },
     sectionLabel: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.sm },
@@ -278,5 +380,8 @@ function makeStyles(colors: ThemeColors) {
     chip: { borderWidth: 1.5, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm - 2 },
     deleteButton: { marginTop: spacing.xxl, alignItems: 'center', padding: spacing.md },
     deleteText: { color: colors.holiday, fontSize: 15, fontWeight: '600' },
+    deleteChoiceBox: { marginTop: spacing.xxl, backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, gap: spacing.xs },
+    deleteChoiceLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm, textAlign: 'center' },
+    deleteChoiceButton: { alignItems: 'center', padding: spacing.md },
   });
 }

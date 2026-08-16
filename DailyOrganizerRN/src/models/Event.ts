@@ -35,6 +35,11 @@ export interface OrganizerEvent {
   recurrence: RecurrenceRule;
   reminderMinutesBefore: number; // -1 = no reminder
   createdAt: string;
+  location?: string;
+  meetingLink?: string;
+  // ISO yyyy-MM-dd dates of individual occurrences removed from a recurring
+  // series (e.g. "skip this one week" without deleting the whole series).
+  excludedDates?: string[];
 }
 
 export function defaultsToYearlyRecurrence(category: EventCategory): boolean {

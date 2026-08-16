@@ -29,6 +29,7 @@ export default function TodayScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | undefined>(undefined);
   const [todayForecast, setTodayForecast] = useState<DailyForecast | null>(null);
 
   const today = new Date();
@@ -122,7 +123,7 @@ export default function TodayScreen() {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>Today</Text>
-          <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
+          <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setEditingOccurrenceDate(undefined); setModalVisible(true); }}>
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>
@@ -139,7 +140,7 @@ export default function TodayScreen() {
               <SwipeableRow key={`${event.id}-${i}`} onDelete={() => handleDeleteEvent(event)} style={{ marginBottom: spacing.sm }}>
                 <Pressable
                   style={[styles.eventRow, { borderLeftColor: style.color }]}
-                  onPress={() => { setEditingEventId(event.id); setModalVisible(true); }}
+                  onPress={() => { setEditingEventId(event.id); setEditingOccurrenceDate(occurrenceDate); setModalVisible(true); }}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.eventTitle}>{event.title}</Text>
@@ -165,7 +166,7 @@ export default function TodayScreen() {
                 <Pressable
                   key={`${event.id}-tmrw-${i}`}
                   style={[styles.eventRow, { borderLeftColor: style.color, opacity: 0.75 }]}
-                  onPress={() => { setEditingEventId(event.id); setModalVisible(true); }}
+                  onPress={() => { setEditingEventId(event.id); setEditingOccurrenceDate(occurrenceDate); setModalVisible(true); }}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={styles.eventTitle}>{event.title}</Text>
@@ -188,6 +189,7 @@ export default function TodayScreen() {
         onClose={() => setModalVisible(false)}
         initialDate={today}
         editingEventId={editingEventId}
+        occurrenceDate={editingOccurrenceDate}
       />
     </SafeAreaView>
   );

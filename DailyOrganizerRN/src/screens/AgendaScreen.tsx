@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SectionList, Pressable, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, SectionList, Pressable, SafeAreaView, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, addYears, startOfToday } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
@@ -15,6 +15,8 @@ export default function AgendaScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sections = useMemo(() => {
     const start = startOfToday();
@@ -35,20 +37,43 @@ export default function AgendaScreen() {
       grouped.get(key)!.push(occ);
     }
 
-    return Array.from(grouped.entries()).map(([key, items]) => ({
-      title: format(items[0].date, 'EEEE, MMM d'),
-      data: items.map(item => ({ ...events.find(e => e.id === item.eventId)!, occurrenceDate: item.date })),
-    }));
-  }, [events]);
+    const query = searchQuery.trim().toLowerCase();
+
+    return Array.from(grouped.entries())
+      .map(([key, items]) => ({
+        title: format(items[0].date, 'EEEE, MMM d'),
+        data: items
+          .map(item => ({ ...events.find(e => e.id === item.eventId)!, occurrenceDate: item.date }))
+          .filter(item => !query || item.title.toLowerCase().includes(query)),
+      }))
+      .filter(section => section.data.length > 0);
+  }, [events, searchQuery]);
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.header}>Agenda</Text>
+
+      <View style={styles.searchRow}>
+        <Ionicons name="search" size={16} color={colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search events"
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+          </Pressable>
+        )}
+      </View>
+
       {sections.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="calendar-outline" size={36} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>No events yet</Text>
-          <Text style={styles.emptySubtext}>Add one from the Calendar tab</Text>
+          <Ionicons name={searchQuery ? 'search' : 'calendar-outline'} size={36} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>{searchQuery ? 'No matching events' : 'No events yet'}</Text>
+          {!searchQuery && <Text style={styles.emptySubtext}>Add one from the Calendar tab</Text>}
         </View>
       ) : (
         <SectionList
@@ -61,7 +86,7 @@ export default function AgendaScreen() {
             return (
               <Pressable
                 style={styles.row}
-                onPress={() => { setEditingEventId(item.id); setModalVisible(true); }}
+                onPress={() => { setEditingEventId(item.id); setEditingOccurrenceDate(item.occurrenceDate); setModalVisible(true); }}
               >
                 <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
                   <Ionicons name={style.icon as any} size={14} color={style.color} />
@@ -81,6 +106,7 @@ export default function AgendaScreen() {
         onClose={() => setModalVisible(false)}
         initialDate={new Date()}
         editingEventId={editingEventId}
+        occurrenceDate={editingOccurrenceDate}
       />
     </SafeAreaView>
   );
@@ -90,6 +116,18 @@ function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: { ...typography.screenTitle, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm, color: colors.textPrimary },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      marginHorizontal: spacing.xl,
+      marginBottom: spacing.md,
+    },
+    searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
     sectionHeader: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
     row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.xs },
     categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

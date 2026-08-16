@@ -206,6 +206,7 @@ export default function CalendarScreen() {
         onClose={() => setModalVisible(false)}
         initialDate={selectedDate}
         editingEventId={editingEventId}
+        occurrenceDate={selectedDate}
       />
     </SafeAreaView>
   );
