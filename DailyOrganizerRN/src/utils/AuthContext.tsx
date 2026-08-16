@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
+  deleteUser,
   User,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -15,6 +16,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -23,6 +25,7 @@ const AuthContext = createContext<AuthContextValue>({
   signIn: async () => {},
   signUp: async () => {},
   signOut: async () => {},
+  deleteAccount: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -55,8 +58,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
   }
 
+  async function deleteAccount() {
+    if (!auth.currentUser) return;
+    // Firebase requires a recent sign-in for account deletion — if this
+    // throws 'auth/requires-recent-login', the caller should prompt the
+    // user to sign out and back in, then try again immediately.
+    await deleteUser(auth.currentUser);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, initializing, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, initializing, signIn, signUp, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

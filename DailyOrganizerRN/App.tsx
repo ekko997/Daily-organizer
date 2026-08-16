@@ -8,11 +8,13 @@ import * as Localization from 'expo-localization';
 import * as Notifications from 'expo-notifications';
 import { requestNotificationPermission } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
+import { isBiometricAvailable, authenticateWithBiometrics } from './src/services/biometricService';
 import { subscribeToEvents, subscribeToFamilyActivity, CloudEvent, EventScope } from './src/services/cloudEventService';
 import { CATEGORY_STYLES } from './src/models/Event';
 import TodayScreen from './src/screens/TodayScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import AgendaScreen from './src/screens/AgendaScreen';
+import TodoScreen from './src/screens/TodoScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import FamilySetupScreen from './src/screens/FamilySetupScreen';
@@ -151,6 +153,7 @@ function MainApp() {
           <Tab.Screen name="Today" component={TodayScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="sunny" size={size} color={color} /> }} />
           <Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />
           <Tab.Screen name="Agenda" component={AgendaScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} /> }} />
+          <Tab.Screen name="To-Do" component={TodoScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size} color={color} /> }} />
           <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />
         </Tab.Navigator>
       </NavigationContainer>
@@ -158,12 +161,59 @@ function MainApp() {
   );
 }
 
+function AppLockScreen({ onUnlocked }: { onUnlocked: () => void }) {
+  const { colors } = useTheme();
+  const { signOut } = useAuth();
+  const [attempting, setAttempting] = useState(false);
+
+  const tryUnlock = useCallback(async () => {
+    setAttempting(true);
+    const success = await authenticateWithBiometrics();
+    setAttempting(false);
+    if (success) onUnlocked();
+  }, [onUnlocked]);
+
+  useEffect(() => {
+    tryUnlock();
+  }, []);
+
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24, gap: 20 }}>
+      <Ionicons name="lock-closed" size={40} color={colors.textSecondary} />
+      <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>Daily Organizer is locked</Text>
+      <Pressable style={{ backgroundColor: colors.accent, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }} onPress={tryUnlock} disabled={attempting}>
+        <Text style={{ color: colors.white, fontWeight: '700' }}>{attempting ? 'Checking...' : 'Unlock'}</Text>
+      </Pressable>
+      <Pressable onPress={signOut}>
+        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Sign out instead</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function RootGate() {
   const { user, initializing } = useAuth();
   const { family, loading: familyLoading, loadError } = useFamily();
+  const [checkingLock, setCheckingLock] = useState(true);
+  const [locked, setLocked] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setCheckingLock(false);
+      return;
+    }
+    loadSettings().then(async saved => {
+      if (saved.biometricLockEnabled && (await isBiometricAvailable())) {
+        setLocked(true);
+      }
+      setCheckingLock(false);
+    });
+  }, [user?.uid]);
 
   if (initializing) return <LoadingScreen />;
   if (!user) return <AuthScreen />;
+  if (checkingLock) return <LoadingScreen />;
+  if (locked) return <AppLockScreen onUnlocked={() => setLocked(false)} />;
   if (loadError) return <LoadingScreen error={loadError} />;
   if (familyLoading) return <LoadingScreen />;
   if (!family) return <FamilySetupScreen />;

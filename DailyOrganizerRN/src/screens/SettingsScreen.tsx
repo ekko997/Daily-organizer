@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Alert } from 'react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
 import { useFamily } from '../utils/FamilyContext';
 import { SUPPORTED_COUNTRIES } from '../services/holidayService';
 import { searchCity, CitySearchResult } from '../services/weatherService';
+import { isBiometricAvailable } from '../services/biometricService';
+import { loadSettings, saveSettings } from '../services/settingsStorageService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme, ThemePreference } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
@@ -23,8 +25,8 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] =
 const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 
 export default function SettingsScreen() {
-  const { countryCode, setCountryCode, region, setRegion, cityName, setLocation } = useEvents();
-  const { user, signOut } = useAuth();
+  const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events } = useEvents();
+  const { user, signOut, deleteAccount } = useAuth();
   const { family, members, renameFamily, removeMember, leaveFamily } = useFamily();
   const { colors, mode, preference, setPreference } = useTheme();
   const { showToast } = useToast();
@@ -36,6 +38,63 @@ export default function SettingsScreen() {
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [editingFamilyName, setEditingFamilyName] = useState(false);
   const [familyNameDraft, setFamilyNameDraft] = useState('');
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(true);
+
+  useEffect(() => {
+    isBiometricAvailable().then(setBiometricSupported);
+    loadSettings().then(saved => setBiometricEnabled(!!saved.biometricLockEnabled));
+  }, []);
+
+  async function handleToggleBiometricLock(value: boolean) {
+    if (value && !biometricSupported) {
+      showToast({ message: 'No Face ID / Touch ID set up on this device' });
+      return;
+    }
+    setBiometricEnabled(value);
+    await saveSettings({ biometricLockEnabled: value });
+  }
+
+  async function handleExportData() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      account: user?.email,
+      events,
+    };
+    try {
+      await Share.share({
+        title: 'Daily Organizer data export',
+        message: JSON.stringify(payload, null, 2),
+      });
+    } catch {
+      showToast({ message: 'Could not export data' });
+    }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete your account?',
+      "This permanently deletes your sign-in and removes your access to any shared family calendars. This can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+            } catch (err: any) {
+              if (err?.code === 'auth/requires-recent-login') {
+                showToast({ message: 'For security, please sign out and back in, then try deleting again right away.', duration: 5000 });
+              } else {
+                showToast({ message: `Could not delete account: ${err?.message || 'unknown error'}` });
+              }
+            }
+          },
+        },
+      ]
+    );
+  }
 
   const selectedCountryName = SUPPORTED_COUNTRIES.find(c => c.code === countryCode)?.name || 'Select a country';
 
@@ -185,6 +244,21 @@ export default function SettingsScreen() {
           })}
         </View>
 
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Privacy</Text>
+        <View style={styles.familyCard}>
+          <View style={styles.lockRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockTitle}>Require Face ID / Touch ID</Text>
+              <Text style={styles.helperText}>Ask for biometric unlock every time you open the app.</Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={handleToggleBiometricLock}
+              trackColor={{ true: colors.accent }}
+            />
+          </View>
+        </View>
+
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Holidays</Text>
         <Text style={styles.helperText}>
           Non-working days for your country will be highlighted on the calendar. Region code is only needed for
@@ -287,6 +361,15 @@ export default function SettingsScreen() {
           <Text style={styles.aboutLabel}>Version</Text>
           <Text style={styles.aboutValue}>1.0.0</Text>
         </View>
+
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Data</Text>
+        <Pressable style={styles.dataButton} onPress={handleExportData}>
+          <Ionicons name="download-outline" size={16} color={colors.textPrimary} />
+          <Text style={styles.dataButtonText}>Export my data</Text>
+        </Pressable>
+        <Pressable style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+          <Text style={styles.signOutText}>Delete my account</Text>
+        </Pressable>
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -335,6 +418,9 @@ function makeStyles(colors: ThemeColors) {
     dropdownRowText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, color: colors.textPrimary },
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xxl * 1.3, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
+    dataButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.sm },
+    dataButtonText: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    deleteAccountButton: { alignItems: 'center', padding: spacing.sm, marginTop: spacing.xs },
     aboutLabel: { fontSize: 14, color: colors.textSecondary },
     aboutValue: { fontSize: 14, color: colors.textPrimary },
     currentCityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.sm },
@@ -377,6 +463,8 @@ function makeStyles(colors: ThemeColors) {
     memberRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs },
     memberEmail: { flex: 1, fontSize: 13, color: colors.textPrimary },
     leaveButton: { alignItems: 'center', padding: spacing.sm, marginTop: spacing.sm },
+    lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    lockTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 },
     signOutButton: { alignItems: 'center', padding: spacing.sm },
     signOutText: { color: colors.holiday, fontSize: 13, fontWeight: '600' },
   });
