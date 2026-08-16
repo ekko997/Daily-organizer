@@ -10,6 +10,8 @@ import { scheduleReminder, cancelReminder } from '../services/notificationServic
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
+import { useToast } from '../utils/ToastContext';
+import { haptics } from '../utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
@@ -24,6 +26,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const { user } = useAuth();
   const { family } = useFamily();
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const editingEvent = events.find(e => e.id === editingEventId) || null;
 
@@ -62,6 +65,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   }, [visible, editingEventId]);
 
   function pickCategory(cat: EventCategory) {
+    haptics.light();
     setCategory(cat);
     if (defaultsToYearlyRecurrence(cat)) setRecurrence('yearly');
   }
@@ -87,6 +91,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
     };
     await upsertCloudEvent(event);
     await scheduleReminder(event);
+    haptics.success();
+    showToast({ message: editingEvent ? 'Event updated' : 'Event added' });
     onClose();
   }
 

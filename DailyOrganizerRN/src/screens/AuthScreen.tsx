@@ -1,13 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../services/firebase';
 import { useAuth } from '../utils/AuthContext';
 import { useTheme } from '../utils/ThemeContext';
+import { useToast } from '../utils/ToastContext';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 
 export default function AuthScreen() {
   const { signIn, signUp } = useAuth();
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -16,6 +20,7 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   async function handleSubmit() {
     setError('');
@@ -34,6 +39,23 @@ export default function AuthScreen() {
       setError(friendlyError(e?.code));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setError('');
+    if (!email.trim()) {
+      setError('Enter your email above first, then tap "Forgot password?"');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      showToast({ message: `Password reset link sent to ${email.trim()}` });
+    } catch (e: any) {
+      setError(friendlyError(e?.code));
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -69,6 +91,12 @@ export default function AuthScreen() {
           </View>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          {mode === 'signin' && (
+            <Pressable onPress={handleForgotPassword} disabled={resetLoading} style={{ marginBottom: spacing.md }}>
+              <Text style={styles.forgotText}>{resetLoading ? 'Sending...' : 'Forgot password?'}</Text>
+            </Pressable>
+          )}
 
           <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
             {loading ? <ActivityIndicator color={colors.white} /> : (
@@ -113,6 +141,7 @@ function makeStyles(colors: ThemeColors) {
     passwordRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
     eyeButton: { padding: spacing.sm },
     error: { color: colors.holiday, fontSize: 13, marginBottom: spacing.md, textAlign: 'center' },
+    forgotText: { color: colors.accent, fontSize: 13, fontWeight: '600', textAlign: 'right' },
     submitButton: { backgroundColor: colors.accent, borderRadius: radii.sm, padding: spacing.md, alignItems: 'center', marginTop: spacing.sm },
     submitText: { color: colors.white, fontSize: 15, fontWeight: '700' },
     switchText: { textAlign: 'center', marginTop: spacing.xl, fontSize: 13, color: colors.textSecondary },

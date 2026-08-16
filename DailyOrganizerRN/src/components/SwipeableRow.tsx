@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Animated, PanResponder, StyleSheet, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { haptics } from '../utils/haptics';
 
 interface Props {
   children: React.ReactNode;
@@ -32,11 +33,14 @@ export default function SwipeableRow({ children, onDelete, deleteColor = '#D9435
       onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
         const next = Math.min(0, Math.max(gesture.dx, MAX_SWIPE));
+        const crossedThreshold = next < SWIPE_THRESHOLD && currentValue.current >= SWIPE_THRESHOLD;
+        if (crossedThreshold) haptics.light();
         translateX.setValue(next);
         currentValue.current = next;
       },
       onPanResponderRelease: () => {
         if (currentValue.current < SWIPE_THRESHOLD) {
+          haptics.medium();
           Animated.timing(translateX, { toValue: -500, duration: 200, useNativeDriver: true }).start(() => {
             onDelete();
           });

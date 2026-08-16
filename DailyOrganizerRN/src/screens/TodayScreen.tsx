@@ -6,10 +6,12 @@ import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
 import { loadForecast, weatherIcon, weatherLabel, DailyForecast } from '../services/weatherService';
-import { deleteCloudEvent } from '../services/cloudEventService';
-import { cancelReminder } from '../services/notificationService';
+import { deleteCloudEvent, upsertCloudEvent, CloudEvent } from '../services/cloudEventService';
+import { cancelReminder, scheduleReminder } from '../services/notificationService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
+import { useToast } from '../utils/ToastContext';
+import { haptics } from '../utils/haptics';
 import AddEditEventModal from './AddEditEventModal';
 import SwipeableRow from '../components/SwipeableRow';
 
@@ -23,6 +25,7 @@ function greeting(): string {
 export default function TodayScreen() {
   const { events, latitude, longitude } = useEvents();
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -65,9 +68,19 @@ export default function TodayScreen() {
 
   const nextUpEvent = todaysEvents.find(item => item.occurrenceDate > new Date());
 
-  async function handleDeleteEvent(eventId: string) {
-    await cancelReminder(eventId);
-    await deleteCloudEvent(eventId);
+  async function handleDeleteEvent(event: CloudEvent) {
+    haptics.warning();
+    await cancelReminder(event.id);
+    await deleteCloudEvent(event.id);
+    showToast({
+      message: `"${event.title}" deleted`,
+      actionLabel: 'Undo',
+      onAction: async () => {
+        await upsertCloudEvent(event);
+        await scheduleReminder(event);
+        haptics.success();
+      },
+    });
   }
 
   return (
@@ -123,7 +136,7 @@ export default function TodayScreen() {
           todaysEvents.map(({ event, occurrenceDate }, i) => {
             const style = CATEGORY_STYLES[event.category];
             return (
-              <SwipeableRow key={`${event.id}-${i}`} onDelete={() => handleDeleteEvent(event.id)} style={{ marginBottom: spacing.sm }}>
+              <SwipeableRow key={`${event.id}-${i}`} onDelete={() => handleDeleteEvent(event)} style={{ marginBottom: spacing.sm }}>
                 <Pressable
                   style={[styles.eventRow, { borderLeftColor: style.color }]}
                   onPress={() => { setEditingEventId(event.id); setModalVisible(true); }}

@@ -17,6 +17,7 @@ import { EventsContext } from './src/utils/EventsContext';
 import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 import { AuthProvider, useAuth } from './src/utils/AuthContext';
 import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
+import { ToastProvider } from './src/utils/ToastContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -142,11 +143,13 @@ function RootGate() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <FamilyProvider>
-          <RootGate />
-        </FamilyProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <FamilyProvider>
+            <RootGate />
+          </FamilyProvider>
+        </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
