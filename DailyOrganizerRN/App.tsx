@@ -3,10 +3,13 @@ import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
+import { format } from 'date-fns';
 import * as Localization from 'expo-localization';
+import * as Notifications from 'expo-notifications';
 import { requestNotificationPermission } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
-import { subscribeToEvents, CloudEvent, EventScope } from './src/services/cloudEventService';
+import { subscribeToEvents, subscribeToFamilyActivity, CloudEvent, EventScope } from './src/services/cloudEventService';
+import { CATEGORY_STYLES } from './src/models/Event';
 import TodayScreen from './src/screens/TodayScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import AgendaScreen from './src/screens/AgendaScreen';
@@ -17,7 +20,7 @@ import { EventsContext } from './src/utils/EventsContext';
 import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 import { AuthProvider, useAuth } from './src/utils/AuthContext';
 import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
-import { ToastProvider } from './src/utils/ToastContext';
+import { ToastProvider, useToast } from './src/utils/ToastContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -51,7 +54,8 @@ function LoadingScreen({ error, showSignOut }: { error?: string | null; showSign
 
 function MainApp() {
   const { user } = useAuth();
-  const { family } = useFamily();
+  const { family, members } = useFamily();
+  const { showToast } = useToast();
   const [events, setEvents] = useState<CloudEvent[]>([]);
   const [activeScope, setActiveScope] = useState<EventScope>('personal');
   const [countryCode, setCountryCodeState] = useState<string>(Localization.getLocales()[0]?.regionCode || 'US');
@@ -77,6 +81,32 @@ function MainApp() {
     const unsubscribe = subscribeToEvents(user.uid, family?.id ?? null, setEvents);
     return unsubscribe;
   }, [user?.uid, family?.id]);
+
+  // Notifies about family calendar changes made by other members while this
+  // app is running (open or recently backgrounded). This is NOT the same as
+  // a true push notification reaching a fully closed app — that needs a
+  // server-side trigger (Cloud Functions), which is separate infrastructure.
+  useEffect(() => {
+    if (!user || !family) return;
+    const unsubscribe = subscribeToFamilyActivity(user.uid, family.id, ({ type, event }) => {
+      const authorEmail = members.find(m => m.uid === event.lastModifiedBy)?.email;
+      const authorName = authorEmail ? authorEmail.split('@')[0] : 'Someone';
+      const categoryLabel = CATEGORY_STYLES[event.category]?.label ?? 'event';
+      const dateLabel = format(new Date(event.date), 'MMM d');
+
+      const message =
+        type === 'added' ? `${authorName} added a new ${categoryLabel.toLowerCase()}: "${event.title}" on ${dateLabel}` :
+        type === 'removed' ? `"${event.title}" was removed from the family calendar` :
+        `${authorName} updated "${event.title}"`;
+
+      showToast({ message, duration: 4000 });
+      Notifications.scheduleNotificationAsync({
+        content: { title: family.name, body: message, sound: true },
+        trigger: null, // fires immediately, as a real device notification
+      }).catch(() => {});
+    });
+    return unsubscribe;
+  }, [user?.uid, family?.id, members]);
 
   function setCountryCode(code: string) {
     setCountryCodeState(code);

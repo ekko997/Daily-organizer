@@ -10,6 +10,13 @@ export interface CloudEvent extends OrganizerEvent {
   familyId: string | null;
 }
 
+export type FamilyActivityType = 'added' | 'modified' | 'removed';
+
+export interface FamilyActivity {
+  type: FamilyActivityType;
+  event: CloudEvent;
+}
+
 /**
  * Subscribes to every event visible to this user: their own personal events,
  * plus every event shared with their family (if they're in one). Calls
@@ -64,4 +71,42 @@ export async function upsertCloudEvent(event: CloudEvent): Promise<void> {
 
 export async function deleteCloudEvent(eventId: string): Promise<void> {
   await deleteDoc(doc(db, 'events', eventId));
+}
+
+/**
+ * Subscribes to add/modify/remove activity on the family calendar, skipping
+ * changes made by the current user (so you don't get notified about your
+ * own actions — you already get a save toast for those).
+ * Only fires while this code is actually running (app open, or backgrounded
+ * but not force-quit) — it is NOT a substitute for real push notifications,
+ * which require a server-side trigger (Cloud Functions) to reach a fully
+ * closed app.
+ */
+export function subscribeToFamilyActivity(
+  uid: string,
+  familyId: string,
+  onActivity: (activity: FamilyActivity) => void
+): () => void {
+  const familyQuery = query(
+    collection(db, 'events'),
+    where('familyId', '==', familyId),
+    where('scope', '==', 'family')
+  );
+
+  let isFirstSnapshot = true;
+
+  return onSnapshot(familyQuery, snap => {
+    // Skip the initial snapshot when the listener first attaches — otherwise
+    // every existing event fires an "added" activity the moment the app opens.
+    if (isFirstSnapshot) {
+      isFirstSnapshot = false;
+      return;
+    }
+    for (const change of snap.docChanges()) {
+      const event = change.doc.data() as CloudEvent;
+      if (event.lastModifiedBy === uid) continue; // don't notify about your own changes
+      const type: FamilyActivityType = change.type === 'added' ? 'added' : change.type === 'removed' ? 'removed' : 'modified';
+      onActivity({ type, event });
+    }
+  });
 }

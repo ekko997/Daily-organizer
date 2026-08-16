@@ -126,6 +126,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       scope,
       familyId: scope === 'family' ? (family?.id ?? null) : null,
       assignedTo: scope === 'family' ? assignedTo : undefined,
+      lastModifiedBy: user.uid,
       excludedDates: editingEvent?.excludedDates,
     };
     try {
