@@ -120,11 +120,18 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       familyId: scope === 'family' ? (family?.id ?? null) : null,
       excludedDates: editingEvent?.excludedDates,
     };
-    await upsertCloudEvent(event);
-    await scheduleReminder(event);
-    haptics.success();
-    showToast({ message: editingEvent ? 'Event updated' : 'Event added' });
-    onClose();
+    try {
+      await upsertCloudEvent(event);
+      await scheduleReminder(event);
+      haptics.success();
+      showToast({ message: editingEvent ? 'Event updated' : 'Event added' });
+      onClose();
+    } catch (err: any) {
+      // Guarantees a save can never fail silently again — whatever the
+      // actual cause, the person sees a reason instead of nothing happening.
+      haptics.warning();
+      showToast({ message: `Couldn't save: ${err?.message || 'unknown error'}`, duration: 5000 });
+    }
   }
 
   function handleDeletePress() {

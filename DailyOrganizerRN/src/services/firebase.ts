@@ -32,7 +32,12 @@ export const auth = authInstance;
 // with no error on certain networks (some WiFi routers, VPNs, corporate
 // networks). Forcing long-polling is the standard, well-documented fix —
 // it's slightly less efficient but far more reliable across networks.
+//
+// ignoreUndefinedProperties: Firestore normally REJECTS any write containing
+// an `undefined` field (e.g. an optional field left blank) — this makes it
+// silently drop those fields instead of failing the whole write.
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
   useFetchStreams: false,
+  ignoreUndefinedProperties: true,
 });
