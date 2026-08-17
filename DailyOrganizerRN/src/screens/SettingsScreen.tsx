@@ -13,6 +13,9 @@ import { useTheme, ThemePreference } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
+import { usePendingInvite } from '../utils/PendingInviteContext';
+import YearRecapModal from './YearRecapModal';
+import FamilySetupScreen from './FamilySetupScreen';
 
 const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] = [
   { label: 'Light', value: 'light', icon: 'sunny' },
@@ -28,6 +31,7 @@ export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events } = useEvents();
   const { user, signOut, deleteAccount } = useAuth();
   const { family, members, renameFamily, removeMember, leaveFamily } = useFamily();
+  const { pendingInviteCode, clearPendingInviteCode } = usePendingInvite();
   const { colors, mode, preference, setPreference } = useTheme();
   const { showToast } = useToast();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -40,11 +44,71 @@ export default function SettingsScreen() {
   const [familyNameDraft, setFamilyNameDraft] = useState('');
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricSupported, setBiometricSupported] = useState(true);
+  const [vacationAllowance, setVacationAllowance] = useState(0);
+  const [vacationUsed, setVacationUsed] = useState(0);
+  const [sickAllowance, setSickAllowance] = useState(0);
+  const [sickUsed, setSickUsed] = useState(0);
+  const [editingAllowances, setEditingAllowances] = useState(false);
+  const [recapVisible, setRecapVisible] = useState(false);
+  const [familySetupVisible, setFamilySetupVisible] = useState(false);
+
+  // If someone tapped a shared invite link, jump straight into the join flow.
+  useEffect(() => {
+    if (pendingInviteCode && !family) {
+      setFamilySetupVisible(true);
+    }
+  }, [pendingInviteCode, family]);
+
+  function handleCloseFamilySetup() {
+    setFamilySetupVisible(false);
+    clearPendingInviteCode();
+  }
+  const [vacationAllowanceDraft, setVacationAllowanceDraft] = useState('0');
+  const [sickAllowanceDraft, setSickAllowanceDraft] = useState('0');
 
   useEffect(() => {
     isBiometricAvailable().then(setBiometricSupported);
-    loadSettings().then(saved => setBiometricEnabled(!!saved.biometricLockEnabled));
+    loadSettings().then(saved => {
+      setBiometricEnabled(!!saved.biometricLockEnabled);
+      const currentYear = new Date().getFullYear();
+      if (saved.timeOffYear && saved.timeOffYear !== currentYear) {
+        // New year — reset usage but keep the allowance amounts.
+        setVacationAllowance(saved.vacationAllowance ?? 0);
+        setSickAllowance(saved.sickAllowance ?? 0);
+        setVacationUsed(0);
+        setSickUsed(0);
+        saveSettings({ vacationUsed: 0, sickUsed: 0, timeOffYear: currentYear });
+      } else {
+        setVacationAllowance(saved.vacationAllowance ?? 0);
+        setVacationUsed(saved.vacationUsed ?? 0);
+        setSickAllowance(saved.sickAllowance ?? 0);
+        setSickUsed(saved.sickUsed ?? 0);
+        if (!saved.timeOffYear) saveSettings({ timeOffYear: currentYear });
+      }
+    });
   }, []);
+
+  async function adjustTimeOff(type: 'vacation' | 'sick', delta: number) {
+    haptics.light();
+    if (type === 'vacation') {
+      const next = Math.max(0, vacationUsed + delta);
+      setVacationUsed(next);
+      await saveSettings({ vacationUsed: next });
+    } else {
+      const next = Math.max(0, sickUsed + delta);
+      setSickUsed(next);
+      await saveSettings({ sickUsed: next });
+    }
+  }
+
+  async function handleSaveAllowances() {
+    const vac = Math.max(0, parseInt(vacationAllowanceDraft, 10) || 0);
+    const sick = Math.max(0, parseInt(sickAllowanceDraft, 10) || 0);
+    setVacationAllowance(vac);
+    setSickAllowance(sick);
+    await saveSettings({ vacationAllowance: vac, sickAllowance: sick });
+    setEditingAllowances(false);
+  }
 
   async function handleToggleBiometricLock(value: boolean) {
     if (value && !biometricSupported) {
@@ -68,6 +132,35 @@ export default function SettingsScreen() {
       });
     } catch {
       showToast({ message: 'Could not export data' });
+    }
+  }
+
+  async function handleExportIcs() {
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Daily Organizer//EN'];
+    for (const event of events) {
+      const dt = new Date(event.date);
+      const stamp = dt.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:${event.id}@dailyorganizer`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART:${stamp}`,
+        `SUMMARY:${event.title.replace(/\n/g, ' ')}`,
+        event.notes ? `DESCRIPTION:${event.notes.replace(/\n/g, ' ')}` : '',
+        event.location ? `LOCATION:${event.location.replace(/\n/g, ' ')}` : '',
+        'END:VEVENT'
+      );
+    }
+    lines.push('END:VCALENDAR');
+    const icsContent = lines.filter(Boolean).join('\r\n');
+    try {
+      await Share.share({
+        title: 'Daily Organizer calendar (.ics)',
+        message: icsContent,
+      });
+      showToast({ message: 'Save the shared text as a .ics file to import elsewhere', duration: 4000 });
+    } catch {
+      showToast({ message: 'Could not export calendar' });
     }
   }
 
@@ -105,7 +198,10 @@ export default function SettingsScreen() {
 
   async function handleShareCode() {
     if (!family) return;
-    await Share.share({ message: `Join our family calendar on Daily Organizer! Invite code: ${family.inviteCode}` });
+    const link = `dailyorganizer://join?code=${family.inviteCode}`;
+    await Share.share({
+      message: `Join our family calendar on Daily Organizer!\n\nInvite code: ${family.inviteCode}\n\nOr tap this link if you already have the app installed: ${link}`,
+    });
   }
 
   function handleRemoveMember(uid: string, email: string) {
@@ -172,56 +268,71 @@ export default function SettingsScreen() {
         <Text style={styles.header}>Settings</Text>
 
         <Text style={styles.sectionLabel}>Family</Text>
-        <View style={styles.familyCard}>
-          {editingFamilyName ? (
-            <View style={styles.familyNameEditRow}>
-              <TextInput
-                style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                value={familyNameDraft}
-                onChangeText={text => setFamilyNameDraft(capitalizeFirst(text))}
-                placeholder="Family name"
-                placeholderTextColor={colors.textSecondary}
-                autoFocus
-              />
-              <Pressable onPress={handleSaveFamilyName}><Text style={styles.saveLink}>Save</Text></Pressable>
-            </View>
-          ) : (
-            <Pressable style={styles.familyNameRow} onPress={() => { setFamilyNameDraft(family?.name || ''); setEditingFamilyName(true); }}>
-              <Text style={styles.familyNameText}>{family?.name || 'Family'}</Text>
-              <Ionicons name="pencil" size={14} color={colors.textSecondary} />
-            </Pressable>
-          )}
-
-          <View style={styles.inviteRow}>
-            <View>
-              <Text style={styles.inviteLabel}>Invite code</Text>
-              <Text style={styles.inviteCode}>{family?.inviteCode}</Text>
-            </View>
-            <Pressable style={styles.shareButton} onPress={handleShareCode}>
-              <Ionicons name="share-outline" size={16} color={colors.white} />
-              <Text style={styles.shareButtonText}>Share</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.memberListLabel}>Members</Text>
-          {members.map(m => (
-            <View key={m.uid} style={styles.memberRow}>
-              <Ionicons name="person-circle-outline" size={18} color={colors.textSecondary} />
-              <Text style={styles.memberEmail} numberOfLines={1}>
-                {m.email}{m.uid === user?.uid ? ' (you)' : ''}{m.uid === family?.createdBy ? ' · Creator' : ''}
-              </Text>
-              {family?.createdBy === user?.uid && m.uid !== user?.uid && (
-                <Pressable onPress={() => handleRemoveMember(m.uid, m.email)}>
-                  <Ionicons name="close-circle" size={18} color={colors.holiday} />
+        {family ? (
+          <>
+            <View style={styles.familyCard}>
+              {editingFamilyName ? (
+                <View style={styles.familyNameEditRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                    value={familyNameDraft}
+                    onChangeText={text => setFamilyNameDraft(capitalizeFirst(text))}
+                    placeholder="Family name"
+                    placeholderTextColor={colors.textSecondary}
+                    autoFocus
+                  />
+                  <Pressable onPress={handleSaveFamilyName}><Text style={styles.saveLink}>Save</Text></Pressable>
+                </View>
+              ) : (
+                <Pressable style={styles.familyNameRow} onPress={() => { setFamilyNameDraft(family?.name || ''); setEditingFamilyName(true); }}>
+                  <Text style={styles.familyNameText}>{family?.name || 'Family'}</Text>
+                  <Ionicons name="pencil" size={14} color={colors.textSecondary} />
                 </Pressable>
               )}
-            </View>
-          ))}
-        </View>
 
-        <Pressable style={styles.leaveButton} onPress={handleLeaveFamily}>
-          <Text style={styles.signOutText}>Leave this family</Text>
-        </Pressable>
+              <View style={styles.inviteRow}>
+                <View>
+                  <Text style={styles.inviteLabel}>Invite code</Text>
+                  <Text style={styles.inviteCode}>{family?.inviteCode}</Text>
+                </View>
+                <Pressable style={styles.shareButton} onPress={handleShareCode}>
+                  <Ionicons name="share-outline" size={16} color={colors.white} />
+                  <Text style={styles.shareButtonText}>Share</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.memberListLabel}>Members</Text>
+              {members.map(m => (
+                <View key={m.uid} style={styles.memberRow}>
+                  <Ionicons name="person-circle-outline" size={18} color={colors.textSecondary} />
+                  <Text style={styles.memberEmail} numberOfLines={1}>
+                    {m.email}{m.uid === user?.uid ? ' (you)' : ''}{m.uid === family?.createdBy ? ' · Creator' : ''}
+                  </Text>
+                  {family?.createdBy === user?.uid && m.uid !== user?.uid && (
+                    <Pressable onPress={() => handleRemoveMember(m.uid, m.email)}>
+                      <Ionicons name="close-circle" size={18} color={colors.holiday} />
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            <Pressable style={styles.leaveButton} onPress={handleLeaveFamily}>
+              <Text style={styles.signOutText}>Leave this family</Text>
+            </Pressable>
+          </>
+        ) : (
+          <View style={styles.familyCard}>
+            <Text style={styles.helperText}>
+              You're using Daily Organizer solo right now. Set up family sharing anytime to add a shared calendar
+              you and others can see and edit together.
+            </Text>
+            <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
+              <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
+              <Text style={styles.dataButtonText}>Set up family sharing</Text>
+            </Pressable>
+          </View>
+        )}
 
         <Pressable style={styles.signOutButton} onPress={signOut}>
           <Text style={styles.signOutText}>Sign out{user?.email ? ` (${user.email})` : ''}</Text>
@@ -257,6 +368,70 @@ export default function SettingsScreen() {
               trackColor={{ true: colors.accent }}
             />
           </View>
+        </View>
+
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Time Off</Text>
+        <View style={styles.familyCard}>
+          <View style={styles.timeOffRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockTitle}>Vacation days</Text>
+              <Text style={styles.timeOffCount}>{Math.max(0, vacationAllowance - vacationUsed)} of {vacationAllowance} left</Text>
+            </View>
+            <Pressable style={styles.timeOffButton} onPress={() => adjustTimeOff('vacation', -1)}>
+              <Ionicons name="remove" size={16} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable style={styles.timeOffButton} onPress={() => adjustTimeOff('vacation', 1)}>
+              <Ionicons name="add" size={16} color={colors.textPrimary} />
+            </Pressable>
+          </View>
+
+          <View style={[styles.timeOffRow, { marginTop: spacing.md }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockTitle}>Sick days</Text>
+              <Text style={styles.timeOffCount}>{Math.max(0, sickAllowance - sickUsed)} of {sickAllowance} left</Text>
+            </View>
+            <Pressable style={styles.timeOffButton} onPress={() => adjustTimeOff('sick', -1)}>
+              <Ionicons name="remove" size={16} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable style={styles.timeOffButton} onPress={() => adjustTimeOff('sick', 1)}>
+              <Ionicons name="add" size={16} color={colors.textPrimary} />
+            </Pressable>
+          </View>
+
+          {editingAllowances ? (
+            <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+              <View style={styles.allowanceInputRow}>
+                <Text style={styles.helperText}>Vacation days/year</Text>
+                <TextInput
+                  style={styles.allowanceInput}
+                  keyboardType="number-pad"
+                  value={vacationAllowanceDraft}
+                  onChangeText={setVacationAllowanceDraft}
+                />
+              </View>
+              <View style={styles.allowanceInputRow}>
+                <Text style={styles.helperText}>Sick days/year</Text>
+                <TextInput
+                  style={styles.allowanceInput}
+                  keyboardType="number-pad"
+                  value={sickAllowanceDraft}
+                  onChangeText={setSickAllowanceDraft}
+                />
+              </View>
+              <Pressable onPress={handleSaveAllowances}><Text style={styles.saveLink}>Save allowances</Text></Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={{ marginTop: spacing.md }}
+              onPress={() => {
+                setVacationAllowanceDraft(String(vacationAllowance));
+                setSickAllowanceDraft(String(sickAllowance));
+                setEditingAllowances(true);
+              }}
+            >
+              <Text style={styles.saveLink}>Edit allowances</Text>
+            </Pressable>
+          )}
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Holidays</Text>
@@ -363,15 +538,30 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Data</Text>
+        <Pressable style={styles.dataButton} onPress={() => { haptics.light(); setRecapVisible(true); }}>
+          <Ionicons name="sparkles-outline" size={16} color={colors.textPrimary} />
+          <Text style={styles.dataButtonText}>Year in Review</Text>
+        </Pressable>
         <Pressable style={styles.dataButton} onPress={handleExportData}>
           <Ionicons name="download-outline" size={16} color={colors.textPrimary} />
-          <Text style={styles.dataButtonText}>Export my data</Text>
+          <Text style={styles.dataButtonText}>Export my data (JSON)</Text>
+        </Pressable>
+        <Pressable style={styles.dataButton} onPress={handleExportIcs}>
+          <Ionicons name="calendar-outline" size={16} color={colors.textPrimary} />
+          <Text style={styles.dataButtonText}>Export calendar (.ics)</Text>
         </Pressable>
         <Pressable style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
           <Text style={styles.signOutText}>Delete my account</Text>
         </Pressable>
       </ScrollView>
       </KeyboardAvoidingView>
+
+      <YearRecapModal visible={recapVisible} onClose={() => setRecapVisible(false)} events={events} />
+      <FamilySetupScreen
+        visible={familySetupVisible}
+        onClose={handleCloseFamilySetup}
+        initialInviteCode={pendingInviteCode}
+      />
     </SafeAreaView>
   );
 }
@@ -464,6 +654,11 @@ function makeStyles(colors: ThemeColors) {
     memberEmail: { flex: 1, fontSize: 13, color: colors.textPrimary },
     leaveButton: { alignItems: 'center', padding: spacing.sm, marginTop: spacing.sm },
     lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    timeOffRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    timeOffCount: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    timeOffButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+    allowanceInputRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    allowanceInput: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.sm, width: 60, textAlign: 'center', fontSize: 14, color: colors.textPrimary },
     lockTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 },
     signOutButton: { alignItems: 'center', padding: spacing.sm },
     signOutText: { color: colors.holiday, fontSize: 13, fontWeight: '600' },

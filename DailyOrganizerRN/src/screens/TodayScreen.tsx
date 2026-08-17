@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, startOfDay, endOfDay, addDays } from 'date-fns';
+import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
@@ -12,6 +12,7 @@ import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
+import { colorForMember } from '../utils/memberColor';
 import AddEditEventModal from './AddEditEventModal';
 import SwipeableRow from '../components/SwipeableRow';
 
@@ -69,6 +70,16 @@ export default function TodayScreen() {
 
   const nextUpEvent = todaysEvents.find(item => item.occurrenceDate > new Date());
 
+  const weekEventCount = useMemo(() => {
+    const start = startOfWeek(today, { weekStartsOn: 1 }); // Monday, matching the calendar grid
+    const end = endOfWeek(today, { weekStartsOn: 1 });
+    let count = 0;
+    for (const event of events) {
+      count += occurrencesInRange(event, start, end).length;
+    }
+    return count;
+  }, [events]);
+
   async function handleDeleteEvent(event: CloudEvent) {
     haptics.warning();
     await cancelReminder(event.id);
@@ -119,11 +130,15 @@ export default function TodayScreen() {
             <Text style={styles.summaryNumber}>{tomorrowsEvents.length}</Text>
             <Text style={styles.summaryLabel}>Tomorrow</Text>
           </View>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryNumber}>{weekEventCount}</Text>
+            <Text style={styles.summaryLabel}>This Week</Text>
+          </View>
         </View>
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>Today</Text>
-          <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setEditingOccurrenceDate(undefined); setModalVisible(true); }}>
+          <Pressable style={styles.addButton} accessibilityLabel="Add event" accessibilityRole="button" onPress={() => { setEditingEventId(null); setEditingOccurrenceDate(undefined); setModalVisible(true); }}>
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>
@@ -150,6 +165,9 @@ export default function TodayScreen() {
                   </View>
                   <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
                     <Ionicons name={style.icon as any} size={14} color={style.color} />
+                    {event.assignedTo && (
+                      <View style={[styles.memberDot, { backgroundColor: colorForMember(event.assignedTo) }]} />
+                    )}
                   </View>
                 </Pressable>
               </SwipeableRow>
@@ -176,6 +194,9 @@ export default function TodayScreen() {
                   </View>
                   <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
                     <Ionicons name={style.icon as any} size={14} color={style.color} />
+                    {event.assignedTo && (
+                      <View style={[styles.memberDot, { backgroundColor: colorForMember(event.assignedTo) }]} />
+                    )}
                   </View>
                 </Pressable>
               );
@@ -233,6 +254,7 @@ function makeStyles(colors: ThemeColors) {
     },
     eventTitle: { ...typography.body, color: colors.textPrimary },
     eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-    categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    memberDot: { position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: colors.background },
   });
 }

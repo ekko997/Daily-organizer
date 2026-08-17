@@ -8,6 +8,12 @@ export interface AppSettings {
   cityName: string;
   latitude: number | null;
   longitude: number | null;
+  biometricLockEnabled: boolean;
+  vacationAllowance: number;
+  vacationUsed: number;
+  sickAllowance: number;
+  sickUsed: number;
+  timeOffYear: number;
 }
 
 export async function loadSettings(): Promise<Partial<AppSettings>> {

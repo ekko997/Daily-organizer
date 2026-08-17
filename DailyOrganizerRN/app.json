@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-1024.png",
+    "scheme": "dailyorganizer",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/icon-1024.png",
@@ -15,15 +16,12 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.dailyorganizer",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "plugins": [
       "expo-notifications",
-      "expo-localization",
-      "expo-asset"
+      "expo-localization"
     ],
     "extra": {
       "eas": {

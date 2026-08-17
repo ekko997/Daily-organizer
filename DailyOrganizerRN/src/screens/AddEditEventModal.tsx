@@ -41,6 +41,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [meetingLink, setMeetingLink] = useState('');
   const [date, setDate] = useState(initialDate);
   const [isAllDay, setIsAllDay] = useState(false);
+  const [isMultiDay, setIsMultiDay] = useState(false);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [category, setCategory] = useState<EventCategory>('personal');
   const [recurrence, setRecurrence] = useState<RecurrenceRule>('none');
   const [reminderMinutes, setReminderMinutes] = useState(30);
@@ -53,6 +55,20 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
 
   const currentScope = editingEvent?.scope ?? selectedScope;
 
+  // Best-effort conflict check: flags another event at the exact same
+  // date/time on the same calendar. (Doesn't account for future occurrences
+  // of recurring events beyond their stored start date — full recurrence-aware
+  // overlap detection would need event durations, which we don't track yet.)
+  const conflictingEvent = useMemo(() => {
+    if (isAllDay) return null;
+    return events.find(e =>
+      e.id !== editingEvent?.id &&
+      e.scope === currentScope &&
+      !e.isAllDay &&
+      new Date(e.date).getTime() === date.getTime()
+    ) || null;
+  }, [events, date, isAllDay, currentScope, editingEvent]);
+
   useEffect(() => {
     if (visible) {
       if (editingEvent) {
@@ -62,6 +78,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setMeetingLink(editingEvent.meetingLink || '');
         setDate(new Date(editingEvent.date));
         setIsAllDay(editingEvent.isAllDay);
+        setIsMultiDay(!!editingEvent.endDate);
+        setEndDate(editingEvent.endDate ? new Date(editingEvent.endDate) : null);
         setCategory(editingEvent.category);
         setRecurrence(editingEvent.recurrence);
         setReminderMinutes(editingEvent.reminderMinutesBefore);
@@ -73,6 +91,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setMeetingLink('');
         setDate(initialDate);
         setIsAllDay(false);
+        setIsMultiDay(false);
+        setEndDate(null);
         setCategory('personal');
         setRecurrence('none');
         setReminderMinutes(30);
@@ -128,6 +148,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       assignedTo: scope === 'family' ? assignedTo : undefined,
       lastModifiedBy: user.uid,
       excludedDates: editingEvent?.excludedDates,
+      endDate: (isMultiDay && recurrence === 'none' && endDate) ? endDate.toISOString() : undefined,
     };
     try {
       await upsertCloudEvent(event);
@@ -200,12 +221,12 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           keyboardShouldPersistTaps="handled"
         >
         <View style={styles.headerRow}>
-          <Pressable style={styles.cancelButton} onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
+          <Pressable style={styles.cancelButton} accessibilityLabel="Cancel" accessibilityRole="button" onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
-          <Pressable style={styles.saveButton} onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
+          <Pressable style={styles.saveButton} accessibilityLabel="Save event" accessibilityRole="button" onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
         </View>
 
-        {!editingEvent && (
+        {!editingEvent && family && (
           <View style={styles.scopeWrapper}>
             <Text style={styles.sectionLabel}>Adding to</Text>
             <Pressable style={styles.scopeButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
@@ -332,6 +353,41 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           style={{ alignSelf: 'flex-start', marginBottom: spacing.lg }}
         />
 
+        {recurrence === 'none' && (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.label}>Multi-day (e.g. a trip)</Text>
+              <Switch
+                value={isMultiDay}
+                onValueChange={value => {
+                  setIsMultiDay(value);
+                  if (value && !endDate) setEndDate(date);
+                }}
+                trackColor={{ true: colors.accent }}
+              />
+            </View>
+            {isMultiDay && (
+              <View style={{ marginBottom: spacing.lg }}>
+                <Text style={styles.sectionLabel}>Ends</Text>
+                <DateTimePicker
+                  value={endDate || date}
+                  mode="date"
+                  minimumDate={date}
+                  onChange={(_, selected) => selected && setEndDate(selected)}
+                  style={{ alignSelf: 'flex-start' }}
+                />
+              </View>
+            )}
+          </>
+        )}
+
+        {conflictingEvent && (
+          <View style={styles.conflictBanner}>
+            <Ionicons name="warning" size={16} color={colors.holiday} />
+            <Text style={styles.conflictText}>Overlaps with "{conflictingEvent.title}" at the same time</Text>
+          </View>
+        )}
+
         <Text style={styles.sectionLabel}>Category</Text>
         <View style={styles.chipRow}>
           {(Object.keys(CATEGORY_STYLES) as EventCategory[]).map(cat => {
@@ -443,6 +499,8 @@ function makeStyles(colors: ThemeColors) {
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
     inputError: { borderWidth: 1.5, borderColor: colors.holiday },
     fieldErrorText: { color: colors.holiday, fontSize: 12, marginTop: -spacing.sm, marginBottom: spacing.md },
+    conflictBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.holidayBg, borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },
+    conflictText: { flex: 1, fontSize: 12, color: colors.textPrimary },
     inlineFieldRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     inlineFieldButton: { width: 44, height: 44, borderRadius: radii.sm, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },

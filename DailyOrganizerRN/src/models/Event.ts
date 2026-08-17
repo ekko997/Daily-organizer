@@ -38,6 +38,9 @@ export interface OrganizerEvent {
   createdAt: string;
   location?: string;
   meetingLink?: string;
+  // ISO date string — when set, the event spans from `date` through `endDate`
+  // inclusive (a multi-day trip/vacation). Only supported for non-recurring events.
+  endDate?: string;
   // uid of the family member this event belongs to (only meaningful for
   // scope: 'family' events) — lets a shared calendar show whose appointment it is.
   assignedTo?: string;

@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, Text, Pressable } from 'react-native';
+import { View, ActivityIndicator, Text, Pressable, Animated } from 'react-native';
+import * as Linking from 'expo-linking';
 import { format } from 'date-fns';
 import * as Localization from 'expo-localization';
 import * as Notifications from 'expo-notifications';
-import { requestNotificationPermission } from './src/services/notificationService';
+import { requestNotificationPermission, snoozeReminder } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
 import { isBiometricAvailable, authenticateWithBiometrics } from './src/services/biometricService';
 import { subscribeToEvents, subscribeToFamilyActivity, CloudEvent, EventScope } from './src/services/cloudEventService';
@@ -23,8 +24,27 @@ import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
 import { AuthProvider, useAuth } from './src/utils/AuthContext';
 import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
 import { ToastProvider, useToast } from './src/utils/ToastContext';
+import { PendingInviteContext } from './src/utils/PendingInviteContext';
 
 const Tab = createBottomTabNavigator();
+
+function SkeletonBlock({ width, height, style }: { width: number | string; height: number; style?: any }) {
+  const { colors } = useTheme();
+  const opacity = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  return <Animated.View style={[{ width, height, borderRadius: 8, backgroundColor: colors.surface, opacity }, style]} />;
+}
 
 function LoadingScreen({ error, showSignOut }: { error?: string | null; showSignOut?: boolean }) {
   const { colors } = useTheme();
@@ -38,15 +58,40 @@ function LoadingScreen({ error, showSignOut }: { error?: string | null; showSign
     return () => clearTimeout(timer);
   }, []);
 
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24, gap: 20 }}>
-      {error ? (
+  if (error) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24, gap: 20 }}>
         <Text style={{ color: colors.holiday, textAlign: 'center', fontSize: 14 }}>{error}</Text>
-      ) : (
-        <ActivityIndicator color={colors.accent} size="large" />
-      )}
-      {(showSignOut || error || showEscape) && (
         <Pressable onPress={signOut}>
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Sign out and try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Mimics the Today screen's layout so the loading state feels like part
+  // of the app rather than a generic blocking spinner.
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 60, gap: 12 }}>
+      <SkeletonBlock width={140} height={16} />
+      <SkeletonBlock width={200} height={28} style={{ marginBottom: 16 }} />
+      <SkeletonBlock width="100%" height={80} style={{ marginBottom: 16 }} />
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
+        <SkeletonBlock width="33%" height={70} />
+        <SkeletonBlock width="33%" height={70} />
+        <SkeletonBlock width="33%" height={70} />
+      </View>
+      <SkeletonBlock width={60} height={16} style={{ marginBottom: 8 }} />
+      <SkeletonBlock width="100%" height={56} />
+      <SkeletonBlock width="100%" height={56} />
+      <SkeletonBlock width="100%" height={56} />
+      {showSignOut && (
+        <Pressable onPress={signOut} style={{ marginTop: 20, alignSelf: 'center' }}>
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Sign out and try again</Text>
+        </Pressable>
+      )}
+      {showEscape && (
+        <Pressable onPress={signOut} style={{ marginTop: 20, alignSelf: 'center' }}>
           <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Sign out and try again</Text>
         </Pressable>
       )}
@@ -60,6 +105,14 @@ function MainApp() {
   const { showToast } = useToast();
   const [events, setEvents] = useState<CloudEvent[]>([]);
   const [activeScope, setActiveScope] = useState<EventScope>('personal');
+
+  // If the family goes away for any reason (left it, was removed, a stale
+  // reference), never leave the app pointed at a "family" scope that no
+  // longer exists — that produced broken family-scoped events with no
+  // actual family behind them.
+  useEffect(() => {
+    if (!family && activeScope === 'family') setActiveScope('personal');
+  }, [family, activeScope]);
   const [countryCode, setCountryCodeState] = useState<string>(Localization.getLocales()[0]?.regionCode || 'US');
   const [region, setRegionState] = useState<string>('');
   const [cityName, setCityName] = useState<string>('');
@@ -76,6 +129,19 @@ function MainApp() {
       if (typeof saved.latitude === 'number') setLatitude(saved.latitude);
       if (typeof saved.longitude === 'number') setLongitude(saved.longitude);
     });
+  }, []);
+
+  // Handles taps on the "Snooze" / "Dismiss" buttons on reminder notifications.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const { actionIdentifier, notification } = response;
+      if (actionIdentifier === 'snooze') {
+        const content = notification.request.content;
+        const eventId = (content.data as any)?.eventId ?? 'unknown';
+        snoozeReminder(content.title || 'Reminder', content.body || '', eventId).catch(() => {});
+      }
+    });
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
@@ -193,9 +259,25 @@ function AppLockScreen({ onUnlocked }: { onUnlocked: () => void }) {
 
 function RootGate() {
   const { user, initializing } = useAuth();
-  const { family, loading: familyLoading, loadError } = useFamily();
+  const { loading: familyLoading } = useFamily();
   const [checkingLock, setCheckingLock] = useState(true);
   const [locked, setLocked] = useState(false);
+  const [pendingInviteCode, setPendingInviteCode] = useState<string | undefined>(undefined);
+
+  // Catches taps on a shared invite link (dailyorganizer://join?code=XXXXXX)
+  // and hands the code to Settings, where family setup now lives (it's no
+  // longer a screen forced on every launch).
+  useEffect(() => {
+    function extractCode(url: string | null) {
+      if (!url) return;
+      const parsed = Linking.parse(url);
+      const code = parsed.queryParams?.code;
+      if (typeof code === 'string') setPendingInviteCode(code);
+    }
+    Linking.getInitialURL().then(extractCode);
+    const subscription = Linking.addEventListener('url', ({ url }) => extractCode(url));
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -214,10 +296,14 @@ function RootGate() {
   if (!user) return <AuthScreen />;
   if (checkingLock) return <LoadingScreen />;
   if (locked) return <AppLockScreen onUnlocked={() => setLocked(false)} />;
-  if (loadError) return <LoadingScreen error={loadError} />;
   if (familyLoading) return <LoadingScreen />;
-  if (!family) return <FamilySetupScreen />;
-  return <MainApp />;
+  // No family? That's a completely normal, permanent state — the app works
+  // fully in personal-only mode. Family sharing is opt-in from Settings.
+  return (
+    <PendingInviteContext.Provider value={{ pendingInviteCode, clearPendingInviteCode: () => setPendingInviteCode(undefined) }}>
+      <MainApp />
+    </PendingInviteContext.Provider>
+  );
 }
 
 export default function App() {

@@ -76,25 +76,29 @@ export default function TodoScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
         <Text style={styles.header}>To-Do</Text>
 
-        <View style={styles.scopeWrapper}>
-          <Pressable style={styles.scopeButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
-            <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
-            <Text style={styles.scopeButtonText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
-            <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
-          </Pressable>
-          {scopeDropdownOpen && (
-            <View style={styles.scopeDropdown}>
-              <Pressable style={styles.scopeDropdownRow} onPress={() => { setActiveScope('personal'); setScopeDropdownOpen(false); }}>
-                <Ionicons name="person" size={16} color={colors.textSecondary} />
-                <Text style={styles.scopeDropdownText}>Personal</Text>
-              </Pressable>
-              <Pressable style={[styles.scopeDropdownRow, styles.scopeDropdownDivider]} onPress={() => { setActiveScope('family'); setScopeDropdownOpen(false); }}>
-                <Ionicons name="people" size={16} color={colors.textSecondary} />
-                <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
+        {family ? (
+          <View style={styles.scopeWrapper}>
+            <Pressable style={styles.scopeButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
+              <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
+              <Text style={styles.scopeButtonText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
+              <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+            </Pressable>
+            {scopeDropdownOpen && (
+              <View style={styles.scopeDropdown}>
+                <Pressable style={styles.scopeDropdownRow} onPress={() => { setActiveScope('personal'); setScopeDropdownOpen(false); }}>
+                  <Ionicons name="person" size={16} color={colors.textSecondary} />
+                  <Text style={styles.scopeDropdownText}>Personal</Text>
+                </Pressable>
+                <Pressable style={[styles.scopeDropdownRow, styles.scopeDropdownDivider]} onPress={() => { setActiveScope('family'); setScopeDropdownOpen(false); }}>
+                  <Ionicons name="people" size={16} color={colors.textSecondary} />
+                  <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={{ height: spacing.md }} />
+        )}
 
         <View style={styles.addRow}>
           <TextInput
@@ -106,7 +110,7 @@ export default function TodoScreen() {
             onSubmitEditing={handleAdd}
             returnKeyType="done"
           />
-          <Pressable style={styles.addButton} onPress={handleAdd}>
+          <Pressable style={styles.addButton} accessibilityLabel="Add to-do item" accessibilityRole="button" onPress={handleAdd}>
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>

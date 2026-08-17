@@ -55,7 +55,7 @@ export default function SwipeableRow({ children, onDelete, deleteColor = '#D9435
   ).current;
 
   return (
-    <View style={[styles.wrapper, style]}>
+    <View style={[styles.wrapper, style]} accessibilityHint="Swipe left to delete">
       <View style={[styles.deleteBackground, { backgroundColor: deleteColor }]}>
         <Ionicons name="trash" size={20} color="#FFFFFF" />
       </View>

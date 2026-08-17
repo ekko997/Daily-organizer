@@ -20,9 +20,10 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 let authInstance: Auth;
 try {
   authInstance = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
-} catch {
+} catch (err) {
   // Falls back to default (non-persisted) auth if RN persistence isn't available
   // in the installed firebase version — sign-in will just be required each app launch.
+console.error('Firebase Auth persistence failed to initialize, falling back to non-persisted auth:', err)
   authInstance = getAuth(app);
 }
 

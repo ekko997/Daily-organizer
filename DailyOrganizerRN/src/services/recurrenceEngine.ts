@@ -14,6 +14,22 @@ export function occurrencesInRange(event: OrganizerEvent, start: Date, end: Date
   const excluded = new Set(event.excludedDates || []);
   const isExcluded = (d: Date) => excluded.has(format(d, 'yyyy-MM-dd'));
 
+  // Multi-day events (a trip/vacation spanning several days) — only
+  // supported for non-recurring events, one entry per day in the span.
+  if (event.recurrence === 'none' && event.endDate) {
+    const spanEnd = new Date(event.endDate);
+    const results: Date[] = [];
+    let current = eventDate;
+    let iterations = 0;
+    const MAX_ITERATIONS = 366; // a year-long span is already an extreme case
+    while (current <= spanEnd && iterations < MAX_ITERATIONS) {
+      if (current >= start && current <= end && !isExcluded(current)) results.push(current);
+      current = addDays(current, 1);
+      iterations++;
+    }
+    return results;
+  }
+
   if (event.recurrence === 'none') {
     return isWithinInterval(eventDate, { start, end }) && !isExcluded(eventDate) ? [eventDate] : [];
   }

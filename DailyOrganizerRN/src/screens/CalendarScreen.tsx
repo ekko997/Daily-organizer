@@ -116,34 +116,36 @@ export default function CalendarScreen() {
         ))}
       </View>
 
-      <View style={styles.scopeSelectorWrapper}>
-        <Pressable style={styles.scopeSelectorButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
-          <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
-          <Text style={styles.scopeSelectorText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
-          <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
-        </Pressable>
+      {family ? (
+        <View style={styles.scopeSelectorWrapper}>
+          <Pressable style={styles.scopeSelectorButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
+            <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
+            <Text style={styles.scopeSelectorText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
+            <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
+          </Pressable>
 
-        {scopeDropdownOpen && (
-          <View style={styles.scopeDropdown}>
-            <Pressable
-              style={[styles.scopeDropdownRow, activeScope === 'personal' && styles.scopeDropdownRowSelected]}
-              onPress={() => { setActiveScope('personal'); setScopeDropdownOpen(false); }}
-            >
-              <Ionicons name="person" size={16} color={colors.textSecondary} />
-              <Text style={styles.scopeDropdownText}>Personal</Text>
-              {activeScope === 'personal' && <Ionicons name="checkmark" size={16} color={colors.accent} style={{ marginLeft: 'auto' }} />}
-            </Pressable>
-            <Pressable
-              style={[styles.scopeDropdownRow, styles.scopeDropdownDivider, activeScope === 'family' && styles.scopeDropdownRowSelected]}
-              onPress={() => { setActiveScope('family'); setScopeDropdownOpen(false); }}
-            >
-              <Ionicons name="people" size={16} color={colors.textSecondary} />
-              <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
-              {activeScope === 'family' && <Ionicons name="checkmark" size={16} color={colors.accent} style={{ marginLeft: 'auto' }} />}
-            </Pressable>
-          </View>
-        )}
-      </View>
+          {scopeDropdownOpen && (
+            <View style={styles.scopeDropdown}>
+              <Pressable
+                style={[styles.scopeDropdownRow, activeScope === 'personal' && styles.scopeDropdownRowSelected]}
+                onPress={() => { setActiveScope('personal'); setScopeDropdownOpen(false); }}
+              >
+                <Ionicons name="person" size={16} color={colors.textSecondary} />
+                <Text style={styles.scopeDropdownText}>Personal</Text>
+                {activeScope === 'personal' && <Ionicons name="checkmark" size={16} color={colors.accent} style={{ marginLeft: 'auto' }} />}
+              </Pressable>
+              <Pressable
+                style={[styles.scopeDropdownRow, styles.scopeDropdownDivider, activeScope === 'family' && styles.scopeDropdownRowSelected]}
+                onPress={() => { setActiveScope('family'); setScopeDropdownOpen(false); }}
+              >
+                <Ionicons name="people" size={16} color={colors.textSecondary} />
+                <Text style={styles.scopeDropdownText}>{family?.name || 'Family'}</Text>
+                {activeScope === 'family' && <Ionicons name="checkmark" size={16} color={colors.accent} style={{ marginLeft: 'auto' }} />}
+              </Pressable>
+            </View>
+          )}
+        </View>
+      ) : null}
 
       <View style={styles.divider} />
 
@@ -156,7 +158,7 @@ export default function CalendarScreen() {
               <Text style={styles.weatherText}>{Math.round(selectedDayForecast.tempMaxC)}°/{Math.round(selectedDayForecast.tempMinC)}°</Text>
             </View>
           )}
-          <Pressable style={styles.addButton} onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
+          <Pressable style={styles.addButton} accessibilityLabel="Add event" accessibilityRole="button" onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>
