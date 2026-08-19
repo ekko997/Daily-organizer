@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useColorScheme, Animated, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, ThemeColors, ThemeMode } from './theme';
 
@@ -41,9 +41,34 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const mode: ThemeMode = preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
   const colors = useMemo(() => getColors(mode), [mode]);
 
+  // Crossfade mask: whenever the resolved mode actually changes, briefly
+  // overlay a solid layer in the new background color and fade it out.
+  // This masks the instant color swap underneath so switching Light/Dark/System
+  // reads as a smooth transition instead of a jarring snap.
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const previousMode = useRef(mode);
+
+  useEffect(() => {
+    if (previousMode.current !== mode) {
+      previousMode.current = mode;
+      overlayOpacity.setValue(1);
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [mode]);
+
   return (
     <ThemeContext.Provider value={{ colors, mode, preference, setPreference }}>
-      {children}
+      <View style={{ flex: 1 }}>
+        {children}
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.background, opacity: overlayOpacity }]}
+        />
+      </View>
     </ThemeContext.Provider>
   );
 }
