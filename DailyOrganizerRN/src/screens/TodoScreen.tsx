@@ -13,6 +13,7 @@ import { haptics } from '../utils/haptics';
 import { capitalizeFirst } from '../utils/textUtils';
 import SwipeableRow from '../components/SwipeableRow';
 import ScreenTransition from '../components/ScreenTransition';
+import EmptyState from '../components/EmptyState';
 
 export default function TodoScreen() {
   const { activeScope, setActiveScope } = useEvents();
@@ -124,10 +125,7 @@ export default function TodoScreen() {
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}>
           {visibleTodos.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="checkmark-done-outline" size={32} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>Nothing on the list</Text>
-            </View>
+            <EmptyState icon="checkmark-done-outline" title="All clear" subtitle="Nothing on this list right now" />
           ) : (
             visibleTodos.map(todo => (
               <SwipeableRow key={todo.id} onDelete={() => handleDelete(todo)} style={{ marginBottom: spacing.sm }}>

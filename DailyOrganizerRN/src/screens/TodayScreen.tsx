@@ -16,6 +16,7 @@ import { colorForMember } from '../utils/memberColor';
 import AddEditEventModal from './AddEditEventModal';
 import SwipeableRow from '../components/SwipeableRow';
 import ScreenTransition from '../components/ScreenTransition';
+import EmptyState from '../components/EmptyState';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -151,10 +152,7 @@ export default function TodayScreen() {
         </View>
 
         {todaysEvents.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="sunny-outline" size={32} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>Nothing on today — enjoy the clear schedule</Text>
-          </View>
+          <EmptyState icon="sunny-outline" title="Clear day ahead" subtitle="Nothing scheduled for today — enjoy it" />
         ) : (
           todaysEvents.map(({ event, occurrenceDate }, i) => {
             const style = CATEGORY_STYLES[event.category];

@@ -9,6 +9,7 @@ import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/th
 import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
+import EmptyState from '../components/EmptyState';
 
 export default function AgendaScreen() {
   const { events } = useEvents();
@@ -81,11 +82,12 @@ export default function AgendaScreen() {
       </View>
 
       {sections.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name={searchQuery ? 'search' : 'calendar-outline'} size={36} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>{searchQuery ? 'No matching events' : 'No events yet'}</Text>
-          {!searchQuery && <Text style={styles.emptySubtext}>Add one from the Calendar tab</Text>}
-        </View>
+        <EmptyState
+          fill
+          icon={searchQuery ? 'search' : 'calendar-outline'}
+          title={searchQuery ? 'No matching events' : 'No events yet'}
+          subtitle={searchQuery ? undefined : 'Add one from the Calendar tab'}
+        />
       ) : (
         <SectionList
           sections={sections}

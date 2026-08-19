@@ -13,6 +13,7 @@ import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
+import EmptyState from '../components/EmptyState';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -184,10 +185,7 @@ export default function CalendarScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-clear-outline" size={26} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>Nothing scheduled — tap + to add something</Text>
-          </View>
+          <EmptyState icon="calendar-clear-outline" title="Nothing scheduled" subtitle="Tap + to add something for this day" />
         }
         renderItem={({ item }) => {
           const style = CATEGORY_STYLES[item.category];
