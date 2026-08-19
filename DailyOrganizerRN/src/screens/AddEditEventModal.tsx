@@ -221,9 +221,9 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           keyboardShouldPersistTaps="handled"
         >
         <View style={styles.headerRow}>
-          <Pressable style={styles.cancelButton} accessibilityLabel="Cancel" accessibilityRole="button" onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
+          <Pressable style={({ pressed }) => [styles.cancelButton, pressed && { opacity: 0.6 }]} accessibilityLabel="Cancel" accessibilityRole="button" onPress={onClose}><Text style={styles.cancel}>Cancel</Text></Pressable>
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
-          <Pressable style={styles.saveButton} accessibilityLabel="Save event" accessibilityRole="button" onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
+          <Pressable style={({ pressed }) => [styles.saveButton, pressed && { transform: [{ scale: 0.95 }], opacity: 0.85 }]} accessibilityLabel="Save event" accessibilityRole="button" onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
         </View>
 
         {!editingEvent && family && (
@@ -397,7 +397,12 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
               <Pressable
                 key={cat}
                 onPress={() => pickCategory(cat)}
-                style={[styles.chip, { borderColor: style.color }, selected && { backgroundColor: style.color }]}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { borderColor: style.color },
+                  selected && { backgroundColor: style.color },
+                  pressed && { transform: [{ scale: 0.95 }] },
+                ]}
               >
                 <Text style={{ color: selected ? colors.white : style.color, fontSize: 13, fontWeight: '500' }}>{style.label}</Text>
               </Pressable>
@@ -496,7 +501,7 @@ function makeStyles(colors: ThemeColors) {
     scopeDropdownDivider: { borderTopWidth: 1, borderTopColor: colors.border },
     scopeDropdownRowSelected: { backgroundColor: colors.surface },
     scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
-    input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
+    input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border },
     inputError: { borderWidth: 1.5, borderColor: colors.holiday },
     fieldErrorText: { color: colors.holiday, fontSize: 12, marginTop: -spacing.sm, marginBottom: spacing.md },
     conflictBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.holidayBg, borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },

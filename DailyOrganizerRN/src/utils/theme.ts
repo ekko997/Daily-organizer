@@ -14,6 +14,24 @@ export const radii = {
   pill: 20,
 };
 
+// Shared elevation for cards — subtle by design, gives depth without
+// looking heavy. Works on both iOS (shadow*) and Android (elevation).
+export const cardShadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.06,
+  shadowRadius: 8,
+  elevation: 2,
+};
+
+export const cardShadowDark = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.35,
+  shadowRadius: 10,
+  elevation: 4,
+};
+
 export const typography = {
   greeting: { fontSize: 15, fontWeight: '500' as const },
   screenTitle: { fontSize: 26, fontWeight: '700' as const },

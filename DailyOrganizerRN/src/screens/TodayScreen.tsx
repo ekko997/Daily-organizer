@@ -8,7 +8,7 @@ import { CATEGORY_STYLES } from '../models/Event';
 import { loadForecast, weatherIcon, weatherLabel, DailyForecast } from '../services/weatherService';
 import { deleteCloudEvent, upsertCloudEvent, CloudEvent } from '../services/cloudEventService';
 import { cancelReminder, scheduleReminder } from '../services/notificationService';
-import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
@@ -138,7 +138,12 @@ export default function TodayScreen() {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeader}>Today</Text>
-          <Pressable style={styles.addButton} accessibilityLabel="Add event" accessibilityRole="button" onPress={() => { setEditingEventId(null); setEditingOccurrenceDate(undefined); setModalVisible(true); }}>
+          <Pressable
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressedShrink]}
+            accessibilityLabel="Add event"
+            accessibilityRole="button"
+            onPress={() => { setEditingEventId(null); setEditingOccurrenceDate(undefined); setModalVisible(true); }}
+          >
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>
@@ -154,7 +159,7 @@ export default function TodayScreen() {
             return (
               <SwipeableRow key={`${event.id}-${i}`} onDelete={() => handleDeleteEvent(event)} style={{ marginBottom: spacing.sm }}>
                 <Pressable
-                  style={[styles.eventRow, { borderLeftColor: style.color }]}
+                  style={({ pressed }) => [styles.eventRow, { borderLeftColor: style.color }, pressed && styles.pressedDim]}
                   onPress={() => { setEditingEventId(event.id); setEditingOccurrenceDate(occurrenceDate); setModalVisible(true); }}
                 >
                   <View style={{ flex: 1 }}>
@@ -183,7 +188,7 @@ export default function TodayScreen() {
               return (
                 <Pressable
                   key={`${event.id}-tmrw-${i}`}
-                  style={[styles.eventRow, { borderLeftColor: style.color, opacity: 0.75 }]}
+                  style={({ pressed }) => [styles.eventRow, { borderLeftColor: style.color, opacity: pressed ? 0.5 : 0.75 }]}
                   onPress={() => { setEditingEventId(event.id); setEditingOccurrenceDate(occurrenceDate); setModalVisible(true); }}
                 >
                   <View style={{ flex: 1 }}>
@@ -231,12 +236,13 @@ function makeStyles(colors: ThemeColors) {
       borderRadius: radii.lg,
       padding: spacing.lg,
       marginBottom: spacing.lg,
+      ...cardShadow,
     },
     nextUpLabel: { ...typography.label, color: colors.textOnDarkMuted },
     nextUpTitle: { ...typography.cardTitle, color: colors.textOnDark, marginTop: 6 },
     nextUpTime: { color: colors.textOnDarkMuted, fontSize: 13, marginTop: 4 },
     summaryRow: { flexDirection: 'row', gap: spacing.sm + 2, marginBottom: spacing.xxl },
-    summaryPill: { flex: 1, backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.lg - 2, alignItems: 'center' },
+    summaryPill: { flex: 1, backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.lg - 2, alignItems: 'center', ...cardShadow },
     summaryNumber: { fontSize: 24, fontWeight: '700', color: colors.textPrimary },
     summaryLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
     sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md - 2 },
@@ -251,9 +257,12 @@ function makeStyles(colors: ThemeColors) {
       borderLeftWidth: 4,
       borderRadius: radii.sm,
       padding: spacing.md,
+      ...cardShadow,
     },
     eventTitle: { ...typography.body, color: colors.textPrimary },
     eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+    pressedShrink: { transform: [{ scale: 0.94 }], opacity: 0.85 },
+    pressedDim: { opacity: 0.6 },
     categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', position: 'relative' },
     memberDot: { position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: colors.background },
   });

@@ -8,7 +8,7 @@ import { occurrencesInRange } from '../services/recurrenceEngine';
 import { loadHolidays, PublicHoliday } from '../services/holidayService';
 import { loadForecast, weatherIcon, DailyForecast } from '../services/weatherService';
 import { CATEGORY_STYLES } from '../models/Event';
-import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
 import AddEditEventModal from './AddEditEventModal';
@@ -92,7 +92,7 @@ export default function CalendarScreen() {
               const currentMonth = isSameMonth(date, displayedMonth);
 
               return (
-                <Pressable key={i} style={styles.dayCell} onPress={() => setSelectedDate(date)}>
+                <Pressable key={i} style={({ pressed }) => [styles.dayCell, pressed && { opacity: 0.5 }]} onPress={() => setSelectedDate(date)}>
                   <View style={[
                     styles.dayCircle,
                     selected && styles.dayCircleSelected,
@@ -158,7 +158,12 @@ export default function CalendarScreen() {
               <Text style={styles.weatherText}>{Math.round(selectedDayForecast.tempMaxC)}°/{Math.round(selectedDayForecast.tempMinC)}°</Text>
             </View>
           )}
-          <Pressable style={styles.addButton} accessibilityLabel="Add event" accessibilityRole="button" onPress={() => { setEditingEventId(null); setModalVisible(true); }}>
+          <Pressable
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressedShrink]}
+            accessibilityLabel="Add event"
+            accessibilityRole="button"
+            onPress={() => { setEditingEventId(null); setModalVisible(true); }}
+          >
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>
@@ -186,7 +191,7 @@ export default function CalendarScreen() {
           const style = CATEGORY_STYLES[item.category];
           return (
             <Pressable
-              style={[styles.eventRow, { borderLeftColor: style.color }]}
+              style={({ pressed }) => [styles.eventRow, { borderLeftColor: style.color }, pressed && styles.pressedDim]}
               onPress={() => { setEditingEventId(item.id); setModalVisible(true); }}
             >
               <View style={{ flex: 1 }}>
@@ -286,7 +291,10 @@ function makeStyles(colors: ThemeColors) {
       borderRadius: radii.sm,
       padding: spacing.md,
       marginBottom: spacing.sm,
+      ...cardShadow,
     },
+    pressedShrink: { transform: [{ scale: 0.94 }], opacity: 0.85 },
+    pressedDim: { opacity: 0.6 },
     eventTitle: { ...typography.body, color: colors.textPrimary },
     eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
     categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
