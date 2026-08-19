@@ -15,6 +15,7 @@ import { haptics } from '../utils/haptics';
 import { colorForMember } from '../utils/memberColor';
 import AddEditEventModal from './AddEditEventModal';
 import SwipeableRow from '../components/SwipeableRow';
+import ScreenTransition from '../components/ScreenTransition';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -97,6 +98,7 @@ export default function TodayScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTransition>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting()}</Text>
@@ -209,6 +211,7 @@ export default function TodayScreen() {
           </>
         )}
       </ScrollView>
+      </ScreenTransition>
 
       <AddEditEventModal
         visible={modalVisible}

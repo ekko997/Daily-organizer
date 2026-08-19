@@ -25,6 +25,7 @@ import { AuthProvider, useAuth } from './src/utils/AuthContext';
 import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
 import { ToastProvider, useToast } from './src/utils/ToastContext';
 import { PendingInviteContext } from './src/utils/PendingInviteContext';
+import { haptics } from './src/utils/haptics';
 
 const Tab = createBottomTabNavigator();
 
@@ -210,6 +211,9 @@ function MainApp() {
       <NavigationContainer theme={navTheme}>
         <Tab.Navigator
           initialRouteName="Today"
+          screenListeners={{
+            tabPress: () => haptics.light(),
+          }}
           screenOptions={{
             tabBarActiveTintColor: colors.accent,
             tabBarInactiveTintColor: colors.textSecondary,
