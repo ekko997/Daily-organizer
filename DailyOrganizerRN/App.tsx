@@ -105,7 +105,14 @@ function MainApp() {
   const { family, members } = useFamily();
   const { showToast } = useToast();
   const [events, setEvents] = useState<CloudEvent[]>([]);
+  const [rawEvents, setRawEvents] = useState<CloudEvent[]>([]);
   const [activeScope, setActiveScope] = useState<EventScope>('personal');
+  const [restrictToOwnEvents, setRestrictToOwnEventsState] = useState(false);
+
+  function setRestrictToOwnEvents(value: boolean) {
+    setRestrictToOwnEventsState(value);
+    saveSettings({ restrictToOwnEvents: value });
+  }
 
   // If the family goes away for any reason (left it, was removed, a stale
   // reference), never leave the app pointed at a "family" scope that no
@@ -129,6 +136,7 @@ function MainApp() {
       if (saved.cityName) setCityName(saved.cityName);
       if (typeof saved.latitude === 'number') setLatitude(saved.latitude);
       if (typeof saved.longitude === 'number') setLongitude(saved.longitude);
+      setRestrictToOwnEventsState(!!saved.restrictToOwnEvents);
     });
   }, []);
 
@@ -147,9 +155,21 @@ function MainApp() {
 
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = subscribeToEvents(user.uid, family?.id ?? null, setEvents);
+    const unsubscribe = subscribeToEvents(user.uid, family?.id ?? null, setRawEvents);
     return unsubscribe;
   }, [user?.uid, family?.id]);
+
+  // "Kid-safe mode" — a soft, display-level filter (not a security
+  // restriction; anyone can toggle it off) that hides family events
+  // explicitly assigned to someone else. Centralized here so every
+  // screen respects it automatically without individual changes.
+  useEffect(() => {
+    if (!restrictToOwnEvents || !user) {
+      setEvents(rawEvents);
+      return;
+    }
+    setEvents(rawEvents.filter(e => e.scope !== 'family' || !e.assignedTo || e.assignedTo === user.uid));
+  }, [rawEvents, restrictToOwnEvents, user?.uid]);
 
   // Notifies about family calendar changes made by other members while this
   // app is running (open or recently backgrounded). This is NOT the same as
@@ -207,7 +227,7 @@ function MainApp() {
   };
 
   return (
-    <EventsContext.Provider value={{ events, activeScope, setActiveScope, countryCode, setCountryCode, region, setRegion, cityName, latitude, longitude, setLocation }}>
+    <EventsContext.Provider value={{ events, activeScope, setActiveScope, countryCode, setCountryCode, region, setRegion, cityName, latitude, longitude, setLocation, restrictToOwnEvents, setRestrictToOwnEvents }}>
       <NavigationContainer theme={navTheme}>
         <Tab.Navigator
           initialRouteName="Today"

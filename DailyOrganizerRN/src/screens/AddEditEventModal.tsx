@@ -404,7 +404,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
                   pressed && { transform: [{ scale: 0.95 }] },
                 ]}
               >
-                <Text style={{ color: selected ? colors.white : style.color, fontSize: 13, fontWeight: '500' }}>{style.label}</Text>
+                <Text style={{ color: selected ? colors.white : style.color, fontSize: 13, fontWeight: '500' }} maxFontSizeMultiplier={1.3}>{style.label}</Text>
               </Pressable>
             );
           })}
@@ -418,7 +418,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
               onPress={() => setRecurrence(rule)}
               style={[styles.chip, { borderColor: colors.surfaceDark }, recurrence === rule && { backgroundColor: colors.surfaceDark }]}
             >
-              <Text style={{ color: recurrence === rule ? colors.textOnDark : colors.textPrimary, fontSize: 13, textTransform: 'capitalize', fontWeight: '500' }}>{rule}</Text>
+              <Text style={{ color: recurrence === rule ? colors.textOnDark : colors.textPrimary, fontSize: 13, textTransform: 'capitalize', fontWeight: '500' }} maxFontSizeMultiplier={1.3}>{rule}</Text>
             </Pressable>
           ))}
         </View>
@@ -431,7 +431,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
               onPress={() => setReminderMinutes(opt.minutes)}
               style={[styles.chip, { borderColor: colors.surfaceDark }, reminderMinutes === opt.minutes && { backgroundColor: colors.surfaceDark }]}
             >
-              <Text style={{ color: reminderMinutes === opt.minutes ? colors.textOnDark : colors.textPrimary, fontSize: 13, fontWeight: '500' }}>{opt.label}</Text>
+              <Text style={{ color: reminderMinutes === opt.minutes ? colors.textOnDark : colors.textPrimary, fontSize: 13, fontWeight: '500' }} maxFontSizeMultiplier={1.3}>{opt.label}</Text>
             </Pressable>
           ))}
         </View>

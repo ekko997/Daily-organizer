@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Alert, Switch } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -8,6 +10,8 @@ import { SUPPORTED_COUNTRIES } from '../services/holidayService';
 import { searchCity, CitySearchResult } from '../services/weatherService';
 import { isBiometricAvailable } from '../services/biometricService';
 import { loadSettings, saveSettings } from '../services/settingsStorageService';
+import { parseIcsEvents } from '../services/icsImportService';
+import { upsertCloudEvent, CloudEvent } from '../services/cloudEventService';
 import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme, ThemePreference } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
@@ -29,7 +33,7 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] =
 const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 
 export default function SettingsScreen() {
-  const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events } = useEvents();
+  const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events, restrictToOwnEvents, setRestrictToOwnEvents } = useEvents();
   const { user, signOut, deleteAccount } = useAuth();
   const { family, members, renameFamily, removeMember, leaveFamily } = useFamily();
   const { pendingInviteCode, clearPendingInviteCode } = usePendingInvite();
@@ -165,6 +169,48 @@ export default function SettingsScreen() {
     }
   }
 
+  async function handleImportIcs() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: ['text/calendar', '*/*'] });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const content = await FileSystem.readAsStringAsync(result.assets[0].uri);
+      const parsed = parseIcsEvents(content);
+
+      if (parsed.length === 0) {
+        showToast({ message: 'No events found in that file' });
+        return;
+      }
+
+      if (!user) return;
+      let imported = 0;
+      for (const item of parsed) {
+        const event: CloudEvent = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}-${imported}`,
+          title: item.title,
+          notes: item.notes,
+          location: item.location || undefined,
+          date: item.date,
+          isAllDay: false,
+          category: 'personal',
+          recurrence: 'none',
+          reminderMinutesBefore: -1,
+          createdAt: new Date().toISOString(),
+          ownerId: user.uid,
+          scope: 'personal',
+          familyId: null,
+          lastModifiedBy: user.uid,
+        };
+        await upsertCloudEvent(event);
+        imported++;
+      }
+      haptics.success();
+      showToast({ message: `Imported ${imported} event${imported === 1 ? '' : 's'}`, duration: 4000 });
+    } catch (err: any) {
+      showToast({ message: `Import failed: ${err?.message || 'unknown error'}` });
+    }
+  }
+
   function handleDeleteAccount() {
     Alert.alert(
       'Delete your account?',
@@ -286,7 +332,7 @@ export default function SettingsScreen() {
                   <Pressable onPress={handleSaveFamilyName}><Text style={styles.saveLink}>Save</Text></Pressable>
                 </View>
               ) : (
-                <Pressable style={styles.familyNameRow} onPress={() => { setFamilyNameDraft(family?.name || ''); setEditingFamilyName(true); }}>
+                <Pressable style={styles.familyNameRow} accessibilityLabel="Edit family name" accessibilityRole="button" onPress={() => { setFamilyNameDraft(family?.name || ''); setEditingFamilyName(true); }}>
                   <Text style={styles.familyNameText}>{family?.name || 'Family'}</Text>
                   <Ionicons name="pencil" size={14} color={colors.textSecondary} />
                 </Pressable>
@@ -297,7 +343,7 @@ export default function SettingsScreen() {
                   <Text style={styles.inviteLabel}>Invite code</Text>
                   <Text style={styles.inviteCode}>{family?.inviteCode}</Text>
                 </View>
-                <Pressable style={styles.shareButton} onPress={handleShareCode}>
+                <Pressable style={styles.shareButton} accessibilityLabel="Share invite code" accessibilityRole="button" onPress={handleShareCode}>
                   <Ionicons name="share-outline" size={16} color={colors.white} />
                   <Text style={styles.shareButtonText}>Share</Text>
                 </Pressable>
@@ -368,8 +414,27 @@ export default function SettingsScreen() {
               value={biometricEnabled}
               onValueChange={handleToggleBiometricLock}
               trackColor={{ true: colors.accent }}
+              accessibilityLabel="Require Face ID or Touch ID to open the app"
             />
           </View>
+
+          {family && (
+            <View style={[styles.lockRow, { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lockTitle}>Kid-safe mode</Text>
+                <Text style={styles.helperText} maxFontSizeMultiplier={1.4}>
+                  Only show family events assigned to you. Anyone can turn this back off — it's for reducing clutter,
+                  not a security lock.
+                </Text>
+              </View>
+              <Switch
+                value={restrictToOwnEvents}
+                onValueChange={setRestrictToOwnEvents}
+                trackColor={{ true: colors.accent }}
+                accessibilityLabel="Only show my own family events"
+              />
+            </View>
+          )}
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Time Off</Text>
@@ -540,19 +605,23 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Data</Text>
-        <Pressable style={styles.dataButton} onPress={() => { haptics.light(); setRecapVisible(true); }}>
+        <Pressable style={({ pressed }) => [styles.dataButton, pressed && { opacity: 0.6 }]} onPress={() => { haptics.light(); setRecapVisible(true); }} accessibilityLabel="View year in review" accessibilityRole="button">
           <Ionicons name="sparkles-outline" size={16} color={colors.textPrimary} />
           <Text style={styles.dataButtonText}>Year in Review</Text>
         </Pressable>
-        <Pressable style={styles.dataButton} onPress={handleExportData}>
+        <Pressable style={({ pressed }) => [styles.dataButton, pressed && { opacity: 0.6 }]} onPress={handleExportData} accessibilityLabel="Export my data as JSON" accessibilityRole="button">
           <Ionicons name="download-outline" size={16} color={colors.textPrimary} />
           <Text style={styles.dataButtonText}>Export my data (JSON)</Text>
         </Pressable>
-        <Pressable style={styles.dataButton} onPress={handleExportIcs}>
+        <Pressable style={({ pressed }) => [styles.dataButton, pressed && { opacity: 0.6 }]} onPress={handleExportIcs} accessibilityLabel="Export calendar as an ics file" accessibilityRole="button">
           <Ionicons name="calendar-outline" size={16} color={colors.textPrimary} />
           <Text style={styles.dataButtonText}>Export calendar (.ics)</Text>
         </Pressable>
-        <Pressable style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
+        <Pressable style={({ pressed }) => [styles.dataButton, pressed && { opacity: 0.6 }]} onPress={handleImportIcs} accessibilityLabel="Import a calendar file" accessibilityRole="button">
+          <Ionicons name="cloud-upload-outline" size={16} color={colors.textPrimary} />
+          <Text style={styles.dataButtonText}>Import calendar (.ics)</Text>
+        </Pressable>
+        <Pressable style={({ pressed }) => [styles.deleteAccountButton, pressed && { opacity: 0.6 }]} onPress={handleDeleteAccount} accessibilityLabel="Delete my account" accessibilityRole="button">
           <Text style={styles.signOutText}>Delete my account</Text>
         </Pressable>
       </ScrollView>

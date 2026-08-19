@@ -14,6 +14,7 @@ export interface AppSettings {
   sickAllowance: number;
   sickUsed: number;
   timeOffYear: number;
+  restrictToOwnEvents: boolean;
 }
 
 export async function loadSettings(): Promise<Partial<AppSettings>> {

@@ -126,15 +126,15 @@ export default function TodayScreen() {
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryPill}>
-            <Text style={styles.summaryNumber}>{todaysEvents.length}</Text>
+            <Text style={styles.summaryNumber} maxFontSizeMultiplier={1.5}>{todaysEvents.length}</Text>
             <Text style={styles.summaryLabel}>Today</Text>
           </View>
           <View style={styles.summaryPill}>
-            <Text style={styles.summaryNumber}>{tomorrowsEvents.length}</Text>
+            <Text style={styles.summaryNumber} maxFontSizeMultiplier={1.5}>{tomorrowsEvents.length}</Text>
             <Text style={styles.summaryLabel}>Tomorrow</Text>
           </View>
           <View style={styles.summaryPill}>
-            <Text style={styles.summaryNumber}>{weekEventCount}</Text>
+            <Text style={styles.summaryNumber} maxFontSizeMultiplier={1.5}>{weekEventCount}</Text>
             <Text style={styles.summaryLabel}>This Week</Text>
           </View>
         </View>

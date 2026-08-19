@@ -13,6 +13,8 @@ interface EventsContextValue {
   latitude: number | null;
   longitude: number | null;
   setLocation: (cityName: string, latitude: number, longitude: number) => void;
+  restrictToOwnEvents: boolean;
+  setRestrictToOwnEvents: (value: boolean) => void;
 }
 
 export const EventsContext = createContext<EventsContextValue>({
@@ -27,6 +29,8 @@ export const EventsContext = createContext<EventsContextValue>({
   latitude: null,
   longitude: null,
   setLocation: () => {},
+  restrictToOwnEvents: false,
+  setRestrictToOwnEvents: () => {},
 });
 
 export function useEvents() {
