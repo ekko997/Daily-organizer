@@ -26,6 +26,7 @@ export default function TodoScreen() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [newText, setNewText] = useState('');
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -35,6 +36,7 @@ export default function TodoScreen() {
 
   const visibleTodos = todos
     .filter(t => t.scope === activeScope)
+    .filter(t => !searchQuery.trim() || t.text.toLowerCase().includes(searchQuery.trim().toLowerCase()))
     .sort((a, b) => Number(a.done) - Number(b.done) || a.createdAt.localeCompare(b.createdAt));
 
   async function handleAdd() {
@@ -123,9 +125,31 @@ export default function TodoScreen() {
           </Pressable>
         </View>
 
+        {todos.filter(t => t.scope === activeScope).length > 3 && (
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={16} color={colors.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search this list"
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
+        )}
+
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}>
           {visibleTodos.length === 0 ? (
-            <EmptyState icon="checkmark-done-outline" title="All clear" subtitle="Nothing on this list right now" />
+            <EmptyState
+              icon={searchQuery ? 'search' : 'checkmark-done-outline'}
+              title={searchQuery ? 'No matches' : 'All clear'}
+              subtitle={searchQuery ? undefined : 'Nothing on this list right now'}
+            />
           ) : (
             visibleTodos.map(todo => (
               <SwipeableRow key={todo.id} onDelete={() => handleDelete(todo)} style={{ marginBottom: spacing.sm }}>
@@ -171,6 +195,13 @@ function makeStyles(colors: ThemeColors) {
     input: { flex: 1, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, color: colors.textPrimary },
     addButton: { width: 44, borderRadius: radii.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
     pressedShrink: { transform: [{ scale: 0.94 }], opacity: 0.85 },
+    searchRow: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      backgroundColor: colors.surface, borderRadius: radii.pill,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      marginHorizontal: spacing.xl, marginBottom: spacing.md,
+    },
+    searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
     todoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, ...cardShadow },
     todoText: { flex: 1, fontSize: 14, color: colors.textPrimary },
     todoTextDone: { textDecorationLine: 'line-through', color: colors.textSecondary },

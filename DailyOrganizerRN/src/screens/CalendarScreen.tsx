@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, addMonths, isSameMonth, endOfDay } from 'date-fns';
+import { format, addMonths, addWeeks, isSameMonth, endOfDay, startOfWeek, addDays } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
 import { gridDates, isSameDay, dayStart, isoDateKey } from '../utils/dateUtils';
 import { occurrencesInRange } from '../services/recurrenceEngine';
@@ -11,18 +11,23 @@ import { CATEGORY_STYLES } from '../models/Event';
 import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
+import { colorForMember } from '../utils/memberColor';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
+type ViewMode = 'month' | 'week';
+
 export default function CalendarScreen() {
   const { events, countryCode, region, latitude, longitude, activeScope, setActiveScope } = useEvents();
-  const { family } = useFamily();
+  const { family, members } = useFamily();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
+  const [displayedWeekStart, setDisplayedWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [holidays, setHolidays] = useState<Map<string, PublicHoliday>>(new Map());
   const [forecast, setForecast] = useState<DailyForecast[]>([]);
@@ -30,9 +35,11 @@ export default function CalendarScreen() {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
 
+  const holidayYear = viewMode === 'month' ? displayedMonth.getFullYear() : displayedWeekStart.getFullYear();
+
   useEffect(() => {
-    loadHolidays(countryCode, displayedMonth.getFullYear(), region || undefined).then(setHolidays);
-  }, [countryCode, region, displayedMonth.getFullYear()]);
+    loadHolidays(countryCode, holidayYear, region || undefined).then(setHolidays);
+  }, [countryCode, region, holidayYear]);
 
   useEffect(() => {
     if (latitude == null || longitude == null) return;
@@ -48,6 +55,8 @@ export default function CalendarScreen() {
     return chunks;
   }, [dates]);
 
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(displayedWeekStart, i)), [displayedWeekStart]);
+
   function eventsOn(date: Date) {
     const start = dayStart(date);
     const end = endOfDay(date);
@@ -60,64 +69,129 @@ export default function CalendarScreen() {
   );
   const selectedHoliday = holidays.get(isoDateKey(selectedDate));
 
+  function memberName(uid: string): string {
+    const m = members.find(x => x.uid === uid);
+    return m ? m.email.split('@')[0] : 'Someone';
+  }
+
+  function openLocation(location: string) {
+    Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(location)}`);
+  }
+
+  function openMeetingLink(link: string) {
+    const url = link.startsWith('http') ? link : `https://${link}`;
+    Linking.openURL(url);
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScreenTransition>
       <View style={styles.header}>
         <View>
           <Text style={styles.eyebrow}>SET UP APPOINTMENTS</Text>
-          <Text style={styles.monthLabel}>{format(displayedMonth, 'MMMM yyyy')}</Text>
+          <Text style={styles.monthLabel}>
+            {viewMode === 'month' ? format(displayedMonth, 'MMMM yyyy') : `${format(displayedWeekStart, 'MMM d')} – ${format(addDays(displayedWeekStart, 6), 'MMM d')}`}
+          </Text>
         </View>
         <View style={styles.monthNav}>
-          <Pressable style={styles.navButton} onPress={() => setDisplayedMonth(addMonths(displayedMonth, -1))}>
+          <Pressable
+            style={styles.navButton}
+            onPress={() => viewMode === 'month' ? setDisplayedMonth(addMonths(displayedMonth, -1)) : setDisplayedWeekStart(addWeeks(displayedWeekStart, -1))}
+          >
             <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
           </Pressable>
-          <Pressable style={styles.navButton} onPress={() => setDisplayedMonth(addMonths(displayedMonth, 1))}>
+          <Pressable
+            style={styles.navButton}
+            onPress={() => viewMode === 'month' ? setDisplayedMonth(addMonths(displayedMonth, 1)) : setDisplayedWeekStart(addWeeks(displayedWeekStart, 1))}
+          >
             <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
           </Pressable>
         </View>
       </View>
 
-      <View style={styles.weekdayRow}>
-        {WEEKDAY_LABELS.map((label, i) => (
-          <Text key={i} style={styles.weekdayLabel}>{label}</Text>
-        ))}
+      <View style={styles.viewToggleRow}>
+        <Pressable
+          style={[styles.viewToggleButton, viewMode === 'month' && styles.viewToggleButtonActive]}
+          onPress={() => setViewMode('month')}
+        >
+          <Text style={[styles.viewToggleText, viewMode === 'month' && styles.viewToggleTextActive]}>Month</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.viewToggleButton, viewMode === 'week' && styles.viewToggleButtonActive]}
+          onPress={() => { setViewMode('week'); setDisplayedWeekStart(startOfWeek(selectedDate, { weekStartsOn: 1 })); }}
+        >
+          <Text style={[styles.viewToggleText, viewMode === 'week' && styles.viewToggleTextActive]}>Week</Text>
+        </Pressable>
       </View>
 
-      <View style={styles.grid}>
-        {weeks.map((week, wi) => (
-          <View key={wi} style={styles.weekRow}>
-            {week.map((date, i) => {
-              const holiday = holidays.get(isoDateKey(date));
-              const hasEvents = eventsOn(date).length > 0;
-              const selected = isSameDay(date, selectedDate);
-              const today = isSameDay(date, new Date());
-              const currentMonth = isSameMonth(date, displayedMonth);
-
-              return (
-                <Pressable key={i} style={({ pressed }) => [styles.dayCell, pressed && { opacity: 0.5 }]} onPress={() => setSelectedDate(date)}>
-                  <View style={[
-                    styles.dayCircle,
-                    selected && styles.dayCircleSelected,
-                    !selected && holiday && styles.dayCircleHoliday,
-                    !selected && today && styles.dayCircleToday,
-                  ]}>
-                    <Text style={[
-                      styles.dayText,
-                      { opacity: currentMonth ? 1 : 0.3 },
-                      selected && styles.dayTextSelected,
-                      !selected && holiday && styles.dayTextHoliday,
-                    ]}>
-                      {format(date, 'd')}
-                    </Text>
-                  </View>
-                  <View style={[styles.dot, { opacity: hasEvents ? 1 : 0 }]} />
-                </Pressable>
-              );
-            })}
+      {viewMode === 'month' ? (
+        <>
+          <View style={styles.weekdayRow}>
+            {WEEKDAY_LABELS.map((label, i) => (
+              <Text key={i} style={styles.weekdayLabel}>{label}</Text>
+            ))}
           </View>
-        ))}
-      </View>
+          <View style={styles.grid}>
+            {weeks.map((week, wi) => (
+              <View key={wi} style={styles.weekRow}>
+                {week.map((date, i) => {
+                  const holiday = holidays.get(isoDateKey(date));
+                  const hasEvents = eventsOn(date).length > 0;
+                  const selected = isSameDay(date, selectedDate);
+                  const today = isSameDay(date, new Date());
+                  const currentMonth = isSameMonth(date, displayedMonth);
+
+                  return (
+                    <Pressable key={i} style={({ pressed }) => [styles.dayCell, pressed && { opacity: 0.5 }]} onPress={() => setSelectedDate(date)}>
+                      <View style={[
+                        styles.dayCircle,
+                        selected && styles.dayCircleSelected,
+                        !selected && holiday && styles.dayCircleHoliday,
+                        !selected && today && styles.dayCircleToday,
+                      ]}>
+                        <Text style={[
+                          styles.dayText,
+                          { opacity: currentMonth ? 1 : 0.3 },
+                          selected && styles.dayTextSelected,
+                          !selected && holiday && styles.dayTextHoliday,
+                        ]}>
+                          {format(date, 'd')}
+                        </Text>
+                      </View>
+                      <View style={[styles.dot, { opacity: hasEvents ? 1 : 0 }]} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </>
+      ) : (
+        <View style={styles.weekStrip}>
+          {weekDays.map((date, i) => {
+            const holiday = holidays.get(isoDateKey(date));
+            const dayEventCount = eventsOn(date).length;
+            const selected = isSameDay(date, selectedDate);
+            const today = isSameDay(date, new Date());
+
+            return (
+              <Pressable key={i} style={({ pressed }) => [styles.weekDayCard, selected && styles.weekDayCardSelected, pressed && { opacity: 0.7 }]} onPress={() => setSelectedDate(date)}>
+                <Text style={[styles.weekDayLabel, selected && styles.weekDayLabelSelected]}>{WEEKDAY_LABELS[i]}</Text>
+                <View style={[
+                  styles.weekDayNumber,
+                  today && !selected && styles.dayCircleToday,
+                  holiday && !selected && styles.dayCircleHoliday,
+                ]}>
+                  <Text style={[styles.dayText, selected && styles.dayTextSelected, !selected && holiday && styles.dayTextHoliday]}>
+                    {format(date, 'd')}
+                  </Text>
+                </View>
+                {dayEventCount > 0 && <Text style={[styles.weekDayCount, selected && styles.weekDayLabelSelected]}>{dayEventCount}</Text>}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       {family ? (
         <View style={styles.scopeSelectorWrapper}>
@@ -195,9 +269,33 @@ export default function CalendarScreen() {
               onPress={() => { setEditingEventId(item.id); setModalVisible(true); }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.eventTitle}>{item.title}</Text>
+                <View style={styles.titleRow}>
+                  <Text style={styles.eventTitle}>{item.title}</Text>
+                  {item.assignedTo && (
+                    <View style={[styles.assignedBadge, { backgroundColor: colorForMember(item.assignedTo) + '22' }]}>
+                      <View style={[styles.assignedDot, { backgroundColor: colorForMember(item.assignedTo) }]} />
+                      <Text style={[styles.assignedText, { color: colorForMember(item.assignedTo) }]}>{memberName(item.assignedTo)}</Text>
+                    </View>
+                  )}
+                </View>
                 {!item.isAllDay && (
                   <Text style={styles.eventTime}>{format(new Date(item.date), 'h:mm a')}</Text>
+                )}
+                {(item.location || item.meetingLink) && (
+                  <View style={styles.metaRow}>
+                    {item.location && (
+                      <Pressable style={styles.metaChip} onPress={() => openLocation(item.location!)}>
+                        <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
+                        <Text style={styles.metaText} numberOfLines={1}>{item.location}</Text>
+                      </Pressable>
+                    )}
+                    {item.meetingLink && (
+                      <Pressable style={styles.metaChip} onPress={() => openMeetingLink(item.meetingLink!)}>
+                        <Ionicons name="videocam-outline" size={12} color={colors.textSecondary} />
+                        <Text style={styles.metaText}>Join</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 )}
               </View>
               <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
@@ -225,9 +323,14 @@ function makeStyles(colors: ThemeColors) {
     container: { flex: 1, backgroundColor: colors.background },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: spacing.xl, paddingTop: spacing.md },
     eyebrow: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5, marginBottom: 2 },
-    monthLabel: { ...typography.screenTitle, color: colors.textPrimary },
+    monthLabel: { ...typography.screenTitle, fontSize: 22, color: colors.textPrimary },
     monthNav: { flexDirection: 'row', gap: spacing.sm },
     navButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+    viewToggleRow: { flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.xl, marginTop: spacing.md },
+    viewToggleButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radii.pill, backgroundColor: colors.surface },
+    viewToggleButtonActive: { backgroundColor: colors.surfaceDark },
+    viewToggleText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+    viewToggleTextActive: { color: colors.textOnDark },
     weekdayRow: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg },
     weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
     grid: { paddingHorizontal: spacing.md, paddingTop: spacing.xs },
@@ -241,6 +344,13 @@ function makeStyles(colors: ThemeColors) {
     dayTextSelected: { color: colors.textOnDark, fontWeight: '600' },
     dayTextHoliday: { color: colors.holiday, fontWeight: '600' },
     dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent, marginTop: 3 },
+    weekStrip: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 4 },
+    weekDayCard: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.md, gap: 4 },
+    weekDayCardSelected: { backgroundColor: colors.surfaceDark },
+    weekDayLabel: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+    weekDayLabelSelected: { color: colors.textOnDark },
+    weekDayNumber: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+    weekDayCount: { fontSize: 10, color: colors.textSecondary },
     scopeSelectorWrapper: { position: 'relative', zIndex: 15, paddingHorizontal: spacing.xl, marginTop: spacing.md },
     scopeSelectorButton: {
       flexDirection: 'row',
@@ -282,8 +392,6 @@ function makeStyles(colors: ThemeColors) {
     holidayBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingBottom: spacing.sm },
     holidayText: { fontSize: 14, fontWeight: '500', flex: 1, color: colors.textPrimary },
     holidaySubtext: { fontSize: 12, color: colors.textSecondary },
-    emptyState: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
-    emptyText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
     eventRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -296,8 +404,15 @@ function makeStyles(colors: ThemeColors) {
     },
     pressedShrink: { transform: [{ scale: 0.94 }], opacity: 0.85 },
     pressedDim: { opacity: 0.6 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
     eventTitle: { ...typography.body, color: colors.textPrimary },
     eventTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+    assignedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 2 },
+    assignedDot: { width: 6, height: 6, borderRadius: 3 },
+    assignedText: { fontSize: 10, fontWeight: '700' },
+    metaRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+    metaChip: { flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 140 },
+    metaText: { fontSize: 11, color: colors.textSecondary },
     categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   });
 }
