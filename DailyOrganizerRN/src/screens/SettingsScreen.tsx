@@ -8,7 +8,7 @@ import { SUPPORTED_COUNTRIES } from '../services/holidayService';
 import { searchCity, CitySearchResult } from '../services/weatherService';
 import { isBiometricAvailable } from '../services/biometricService';
 import { loadSettings, saveSettings } from '../services/settingsStorageService';
-import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme, ThemePreference } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
 import { useToast } from '../utils/ToastContext';
@@ -16,6 +16,7 @@ import { haptics } from '../utils/haptics';
 import { usePendingInvite } from '../utils/PendingInviteContext';
 import YearRecapModal from './YearRecapModal';
 import FamilySetupScreen from './FamilySetupScreen';
+import ScreenTransition from '../components/ScreenTransition';
 
 const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] = [
   { label: 'Light', value: 'light', icon: 'sunny' },
@@ -259,6 +260,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTransition>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -555,6 +557,7 @@ export default function SettingsScreen() {
         </Pressable>
       </ScrollView>
       </KeyboardAvoidingView>
+      </ScreenTransition>
 
       <YearRecapModal visible={recapVisible} onClose={() => setRecapVisible(false)} events={events} />
       <FamilySetupScreen
@@ -638,7 +641,7 @@ function makeStyles(colors: ThemeColors) {
     cityResultRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
     cityResultDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
     cityResultText: { fontSize: 14, color: colors.textPrimary },
-    familyCard: { backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.sm },
+    familyCard: { backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.sm, ...cardShadow },
     familyNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
     familyNameText: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
     familyNameEditRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },

@@ -12,6 +12,7 @@ import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/th
 import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
 import AddEditEventModal from './AddEditEventModal';
+import ScreenTransition from '../components/ScreenTransition';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -60,6 +61,7 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTransition>
       <View style={styles.header}>
         <View>
           <Text style={styles.eyebrow}>SET UP APPOINTMENTS</Text>
@@ -215,6 +217,7 @@ export default function CalendarScreen() {
         editingEventId={editingEventId}
         occurrenceDate={selectedDate}
       />
+      </ScreenTransition>
     </SafeAreaView>
   );
 }

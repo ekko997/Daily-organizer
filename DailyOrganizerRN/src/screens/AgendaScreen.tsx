@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SectionList, Pressable, SafeAreaView, TextInput } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, SectionList, Pressable, SafeAreaView, TextInput, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, addYears, startOfToday } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
-import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
+import ScreenTransition from '../components/ScreenTransition';
 
 export default function AgendaScreen() {
   const { events } = useEvents();
@@ -17,6 +18,15 @@ export default function AgendaScreen() {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Events already sync live via Firestore, so there's nothing to actually
+  // re-fetch — this just gives the expected tactile confirmation that
+  // everything's current when someone pulls down.
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
 
   const sections = useMemo(() => {
     const start = startOfToday();
@@ -51,6 +61,7 @@ export default function AgendaScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTransition>
       <Text style={styles.header}>Agenda</Text>
 
       <View style={styles.searchRow}>
@@ -80,12 +91,13 @@ export default function AgendaScreen() {
           sections={sections}
           keyExtractor={(item: any, index) => `${item.id}-${index}`}
           contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           renderSectionHeader={({ section }) => <Text style={styles.sectionHeader}>{section.title}</Text>}
           renderItem={({ item }: any) => {
             const style = CATEGORY_STYLES[item.category];
             return (
               <Pressable
-                style={styles.row}
+                style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
                 onPress={() => { setEditingEventId(item.id); setEditingOccurrenceDate(item.occurrenceDate); setModalVisible(true); }}
               >
                 <View style={[styles.categoryBadge, { backgroundColor: style.color + '22' }]}>
@@ -108,6 +120,7 @@ export default function AgendaScreen() {
         editingEventId={editingEventId}
         occurrenceDate={editingOccurrenceDate}
       />
+      </ScreenTransition>
     </SafeAreaView>
   );
 }
@@ -129,7 +142,7 @@ function makeStyles(colors: ThemeColors) {
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
     sectionHeader: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
-    row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.xs },
+    row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.xs, ...cardShadow },
     categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     rowTitle: { ...typography.body, color: colors.textPrimary },
     rowTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },

@@ -6,12 +6,13 @@ import { useAuth } from '../utils/AuthContext';
 import { useFamily } from '../utils/FamilyContext';
 import { TodoItem } from '../models/Todo';
 import { subscribeToTodos, upsertTodo, toggleTodo, deleteTodo } from '../services/cloudTodoService';
-import { spacing, radii, typography, ThemeColors } from '../utils/theme';
+import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
 import { capitalizeFirst } from '../utils/textUtils';
 import SwipeableRow from '../components/SwipeableRow';
+import ScreenTransition from '../components/ScreenTransition';
 
 export default function TodoScreen() {
   const { activeScope, setActiveScope } = useEvents();
@@ -73,6 +74,7 @@ export default function TodoScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTransition>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
         <Text style={styles.header}>To-Do</Text>
 
@@ -110,7 +112,12 @@ export default function TodoScreen() {
             onSubmitEditing={handleAdd}
             returnKeyType="done"
           />
-          <Pressable style={styles.addButton} accessibilityLabel="Add to-do item" accessibilityRole="button" onPress={handleAdd}>
+          <Pressable
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressedShrink]}
+            accessibilityLabel="Add to-do item"
+            accessibilityRole="button"
+            onPress={handleAdd}
+          >
             <Ionicons name="add" size={20} color={colors.white} />
           </Pressable>
         </View>
@@ -124,7 +131,7 @@ export default function TodoScreen() {
           ) : (
             visibleTodos.map(todo => (
               <SwipeableRow key={todo.id} onDelete={() => handleDelete(todo)} style={{ marginBottom: spacing.sm }}>
-                <Pressable style={styles.todoRow} onPress={() => handleToggle(todo)}>
+                <Pressable style={({ pressed }) => [styles.todoRow, pressed && { opacity: 0.6 }]} onPress={() => handleToggle(todo)}>
                   <Ionicons
                     name={todo.done ? 'checkbox' : 'square-outline'}
                     size={22}
@@ -137,6 +144,7 @@ export default function TodoScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      </ScreenTransition>
     </SafeAreaView>
   );
 }
@@ -164,7 +172,8 @@ function makeStyles(colors: ThemeColors) {
     addRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.md, marginBottom: spacing.md },
     input: { flex: 1, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, color: colors.textPrimary },
     addButton: { width: 44, borderRadius: radii.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-    todoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md },
+    pressedShrink: { transform: [{ scale: 0.94 }], opacity: 0.85 },
+    todoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, ...cardShadow },
     todoText: { flex: 1, fontSize: 14, color: colors.textPrimary },
     todoTextDone: { textDecorationLine: 'line-through', color: colors.textSecondary },
     emptyState: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
