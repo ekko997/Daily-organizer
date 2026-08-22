@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -27,6 +27,13 @@ export default function TodoScreen() {
   const [newText, setNewText] = useState('');
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    haptics.light();
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 500);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -75,11 +82,26 @@ export default function TodoScreen() {
     });
   }
 
+  async function handleClearCompleted() {
+    const completed = visibleTodos.filter(t => t.done);
+    if (completed.length === 0) return;
+    haptics.warning();
+    for (const t of completed) await deleteTodo(t.id);
+    showToast({ message: `Cleared ${completed.length} completed item${completed.length === 1 ? '' : 's'}` });
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScreenTransition>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
-        <Text style={styles.header}>To-Do</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>To-Do</Text>
+          {visibleTodos.some(t => t.done) && (
+            <Pressable onPress={handleClearCompleted} accessibilityLabel="Clear completed items" accessibilityRole="button">
+              <Text style={styles.clearCompletedText}>Clear done</Text>
+            </Pressable>
+          )}
+        </View>
 
         {family ? (
           <View style={styles.scopeWrapper}>
@@ -143,7 +165,10 @@ export default function TodoScreen() {
           </View>
         )}
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+        >
           {visibleTodos.length === 0 ? (
             <EmptyState
               icon={searchQuery ? 'search' : 'checkmark-done-outline'}
@@ -175,6 +200,8 @@ function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: { ...typography.screenTitle, paddingHorizontal: spacing.xl, paddingTop: spacing.md, color: colors.textPrimary },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: spacing.xl },
+    clearCompletedText: { fontSize: 12, fontWeight: '600', color: colors.accent },
     scopeWrapper: { position: 'relative', zIndex: 20, paddingHorizontal: spacing.xl, marginTop: spacing.md },
     scopeButton: {
       flexDirection: 'row', alignItems: 'center', gap: spacing.sm,

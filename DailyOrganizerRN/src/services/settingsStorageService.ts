@@ -15,6 +15,9 @@ export interface AppSettings {
   sickUsed: number;
   timeOffYear: number;
   restrictToOwnEvents: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: number; // 0-23
+  quietHoursEnd: number;   // 0-23
 }
 
 export async function loadSettings(): Promise<Partial<AppSettings>> {

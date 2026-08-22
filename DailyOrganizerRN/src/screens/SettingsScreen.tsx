@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, Share, Alert, Switch, Modal } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -20,6 +21,7 @@ import { haptics } from '../utils/haptics';
 import { usePendingInvite } from '../utils/PendingInviteContext';
 import YearRecapModal from './YearRecapModal';
 import FamilySetupScreen from './FamilySetupScreen';
+import HolidayListModal from './HolidayListModal';
 import ScreenTransition from '../components/ScreenTransition';
 
 const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] = [
@@ -56,6 +58,34 @@ export default function SettingsScreen() {
   const [editingAllowances, setEditingAllowances] = useState(false);
   const [recapVisible, setRecapVisible] = useState(false);
   const [familySetupVisible, setFamilySetupVisible] = useState(false);
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
+  const [quietHoursStart, setQuietHoursStart] = useState(22);
+  const [quietHoursEnd, setQuietHoursEnd] = useState(7);
+  const [holidayListVisible, setHolidayListVisible] = useState(false);
+  const [whatsNewVisible, setWhatsNewVisible] = useState(false);
+
+  function formatHour(hour: number): string {
+    const h = hour % 12 === 0 ? 12 : hour % 12;
+    return `${h}${hour < 12 ? 'am' : 'pm'}`;
+  }
+
+  function cycleQuietHour(which: 'start' | 'end') {
+    haptics.light();
+    if (which === 'start') {
+      const next = (quietHoursStart + 1) % 24;
+      setQuietHoursStart(next);
+      saveSettings({ quietHoursStart: next });
+    } else {
+      const next = (quietHoursEnd + 1) % 24;
+      setQuietHoursEnd(next);
+      saveSettings({ quietHoursEnd: next });
+    }
+  }
+
+  function handleToggleQuietHours(value: boolean) {
+    setQuietHoursEnabled(value);
+    saveSettings({ quietHoursEnabled: value });
+  }
 
   // If someone tapped a shared invite link, jump straight into the join flow.
   useEffect(() => {
@@ -90,6 +120,9 @@ export default function SettingsScreen() {
         setSickUsed(saved.sickUsed ?? 0);
         if (!saved.timeOffYear) saveSettings({ timeOffYear: currentYear });
       }
+      setQuietHoursEnabled(!!saved.quietHoursEnabled);
+      if (typeof saved.quietHoursStart === 'number') setQuietHoursStart(saved.quietHoursStart);
+      if (typeof saved.quietHoursEnd === 'number') setQuietHoursEnd(saved.quietHoursEnd);
     });
   }, []);
 
@@ -251,6 +284,13 @@ export default function SettingsScreen() {
     });
   }
 
+  async function handleCopyCode() {
+    if (!family) return;
+    await Clipboard.setStringAsync(family.inviteCode);
+    haptics.light();
+    showToast({ message: 'Invite code copied' });
+  }
+
   function handleRemoveMember(uid: string, email: string) {
     Alert.alert(
       'Remove member?',
@@ -339,10 +379,10 @@ export default function SettingsScreen() {
               )}
 
               <View style={styles.inviteRow}>
-                <View>
-                  <Text style={styles.inviteLabel}>Invite code</Text>
+                <Pressable onPress={handleCopyCode} accessibilityLabel="Tap to copy invite code" accessibilityRole="button">
+                  <Text style={styles.inviteLabel}>Invite code (tap to copy)</Text>
                   <Text style={styles.inviteCode}>{family?.inviteCode}</Text>
-                </View>
+                </Pressable>
                 <Pressable style={styles.shareButton} accessibilityLabel="Share invite code" accessibilityRole="button" onPress={handleShareCode}>
                   <Ionicons name="share-outline" size={16} color={colors.white} />
                   <Text style={styles.shareButtonText}>Share</Text>
@@ -435,6 +475,34 @@ export default function SettingsScreen() {
               />
             </View>
           )}
+
+          <View style={[styles.lockRow, { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockTitle}>Quiet hours</Text>
+              <Text style={styles.helperText} maxFontSizeMultiplier={1.4}>
+                Reminders during this window are delayed until it ends, not lost.
+              </Text>
+            </View>
+            <Switch
+              value={quietHoursEnabled}
+              onValueChange={handleToggleQuietHours}
+              trackColor={{ true: colors.accent }}
+              accessibilityLabel="Enable quiet hours"
+            />
+          </View>
+          {quietHoursEnabled && (
+            <View style={styles.quietHoursRow}>
+              <Pressable style={styles.quietHoursButton} onPress={() => cycleQuietHour('start')}>
+                <Text style={styles.quietHoursLabel}>From</Text>
+                <Text style={styles.quietHoursValue}>{formatHour(quietHoursStart)}</Text>
+              </Pressable>
+              <Ionicons name="arrow-forward" size={14} color={colors.textSecondary} />
+              <Pressable style={styles.quietHoursButton} onPress={() => cycleQuietHour('end')}>
+                <Text style={styles.quietHoursLabel}>Until</Text>
+                <Text style={styles.quietHoursValue}>{formatHour(quietHoursEnd)}</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Time Off</Text>
@@ -506,6 +574,9 @@ export default function SettingsScreen() {
           Non-working days for your country will be highlighted on the calendar. Region code is only needed for
           countries with state-specific holidays (e.g. US state codes like US-CA).
         </Text>
+        <Pressable onPress={() => setHolidayListVisible(true)} style={{ marginBottom: spacing.md }}>
+          <Text style={styles.saveLink}>View all {new Date().getFullYear()} holidays</Text>
+        </Pressable>
 
         <View style={styles.dropdownWrapper}>
           <Pressable style={styles.selectorButton} onPress={() => setCountryDropdownOpen(!countryDropdownOpen)}>
@@ -540,14 +611,21 @@ export default function SettingsScreen() {
         {COUNTRIES_WITH_REGIONS.has(countryCode) && (
           <>
             <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Region / state code (optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. US-CA"
-              placeholderTextColor={colors.textSecondary}
-              value={region}
-              onChangeText={setRegion}
-              autoCapitalize="characters"
-            />
+            <View style={styles.clearableInputRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                placeholder="e.g. US-CA"
+                placeholderTextColor={colors.textSecondary}
+                value={region}
+                onChangeText={setRegion}
+                autoCapitalize="characters"
+              />
+              {region.length > 0 && (
+                <Pressable onPress={() => setRegion('')} accessibilityLabel="Clear region" accessibilityRole="button" style={styles.clearButton}>
+                  <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                </Pressable>
+              )}
+            </View>
           </>
         )}
 
@@ -603,6 +681,9 @@ export default function SettingsScreen() {
           <Text style={styles.aboutLabel}>Version</Text>
           <Text style={styles.aboutValue}>1.0.0</Text>
         </View>
+        <Pressable onPress={() => setWhatsNewVisible(true)} style={{ marginTop: spacing.sm }}>
+          <Text style={styles.saveLink}>What's new</Text>
+        </Pressable>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Data</Text>
         <Pressable style={({ pressed }) => [styles.dataButton, pressed && { opacity: 0.6 }]} onPress={() => { haptics.light(); setRecapVisible(true); }} accessibilityLabel="View year in review" accessibilityRole="button">
@@ -634,9 +715,56 @@ export default function SettingsScreen() {
         onClose={handleCloseFamilySetup}
         initialInviteCode={pendingInviteCode}
       />
+      <HolidayListModal
+        visible={holidayListVisible}
+        onClose={() => setHolidayListVisible(false)}
+        countryCode={countryCode}
+        region={region}
+      />
+      <Modal visible={whatsNewVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setWhatsNewVisible(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.xl }}>
+            <View style={{ width: 60 }} />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.textPrimary }}>What's New</Text>
+            <Pressable style={{ width: 60, alignItems: 'flex-end' }} onPress={() => setWhatsNewVisible(false)}>
+              <Text style={{ color: colors.accent, fontSize: 15, fontWeight: '600' }}>Done</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: spacing.xl }}>
+            {WHATS_NEW.map((entry, i) => (
+              <View key={i} style={{ marginBottom: spacing.lg }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.accent, marginBottom: spacing.xs }}>{entry.title}</Text>
+                {entry.items.map((item, j) => (
+                  <Text key={j} style={{ fontSize: 13, color: colors.textSecondary, marginBottom: 4 }}>• {item}</Text>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const WHATS_NEW = [
+  {
+    title: 'This update',
+    items: [
+      'Week view alongside Month on the calendar',
+      'Countdown, birthday ages, and anniversary years shown automatically',
+      'Duplicate and share events directly',
+      'Quiet hours for reminders',
+      'Full holiday list, and a "What\'s New" screen (you\'re looking at it)',
+    ],
+  },
+  {
+    title: 'Family sharing',
+    items: [
+      'Shared calendar, to-do list, invite links, and per-person colors',
+      'Kid-safe mode to reduce clutter',
+    ],
+  },
+];
 
 function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -679,6 +807,8 @@ function makeStyles(colors: ThemeColors) {
     dropdownRowSelected: { backgroundColor: colors.surface },
     dropdownRowText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, color: colors.textPrimary },
+    clearableInputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    clearButton: { padding: spacing.xs },
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xxl * 1.3, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
     dataButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.sm },
     dataButtonText: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
@@ -726,6 +856,10 @@ function makeStyles(colors: ThemeColors) {
     memberEmail: { flex: 1, fontSize: 13, color: colors.textPrimary },
     leaveButton: { alignItems: 'center', padding: spacing.sm, marginTop: spacing.sm },
     lockRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    quietHoursRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+    quietHoursButton: { flex: 1, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.sm + 2, alignItems: 'center' },
+    quietHoursLabel: { fontSize: 10, color: colors.textSecondary, marginBottom: 2 },
+    quietHoursValue: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
     timeOffRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     timeOffCount: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
     timeOffButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },

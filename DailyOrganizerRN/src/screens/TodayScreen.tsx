@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, startOfDay, endOfDay, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
@@ -13,6 +14,7 @@ import { useTheme } from '../utils/ThemeContext';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
 import { colorForMember } from '../utils/memberColor';
+import { yearsSinceOriginal, countdownLabel } from '../utils/dateMath';
 import AddEditEventModal from './AddEditEventModal';
 import SwipeableRow from '../components/SwipeableRow';
 import ScreenTransition from '../components/ScreenTransition';
@@ -34,15 +36,41 @@ export default function TodayScreen() {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | undefined>(undefined);
   const [todayForecast, setTodayForecast] = useState<DailyForecast | null>(null);
+  const [threeDayForecast, setThreeDayForecast] = useState<DailyForecast[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
 
   const today = new Date();
 
   useEffect(() => {
-    if (latitude == null || longitude == null) return;
-    loadForecast(latitude, longitude).then(days => {
-      const todayKey = format(today, 'yyyy-MM-dd');
-      setTodayForecast(days.find(d => d.date === todayKey) || null);
+    AsyncStorage.getItem('seen_swipe_hint_v1').then(seen => {
+      if (!seen) setShowSwipeHint(true);
     });
+  }, []);
+
+  function dismissSwipeHint() {
+    setShowSwipeHint(false);
+    AsyncStorage.setItem('seen_swipe_hint_v1', 'true');
+  }
+
+  function applyForecast(days: DailyForecast[]) {
+    const key = format(today, 'yyyy-MM-dd');
+    setTodayForecast(days.find(d => d.date === key) || null);
+    setThreeDayForecast(days.slice(1, 4)); // next 3 days, excluding today
+  }
+
+  const onRefresh = useCallback(() => {
+    haptics.light();
+    setRefreshing(true);
+    if (latitude != null && longitude != null) {
+      loadForecast(latitude, longitude).then(applyForecast);
+    }
+    setTimeout(() => setRefreshing(false), 600);
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    if (latitude == null || longitude == null) return;
+    loadForecast(latitude, longitude).then(applyForecast);
   }, [latitude, longitude]);
 
   const todaysEvents = useMemo(() => {
@@ -100,7 +128,19 @@ export default function TodayScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenTransition>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+      >
+        {showSwipeHint && (
+          <View style={styles.hintBanner}>
+            <Ionicons name="hand-left-outline" size={16} color={colors.accent} />
+            <Text style={styles.hintText}>Swipe an event left to delete it</Text>
+            <Pressable onPress={dismissSwipeHint}>
+              <Ionicons name="close" size={16} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+        )}
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting()}</Text>
           <View style={styles.dateRow}>
@@ -112,14 +152,46 @@ export default function TodayScreen() {
               </View>
             )}
           </View>
+          {todayForecast?.sunrise && todayForecast?.sunset && (
+            <View style={styles.sunRow}>
+              <Ionicons name="sunny-outline" size={12} color={colors.textSecondary} />
+              <Text style={styles.sunText}>{format(new Date(todayForecast.sunrise), 'h:mm a')}</Text>
+              <Ionicons name="moon-outline" size={12} color={colors.textSecondary} style={{ marginLeft: spacing.sm }} />
+              <Text style={styles.sunText}>{format(new Date(todayForecast.sunset), 'h:mm a')}</Text>
+            </View>
+          )}
         </View>
+
+        {threeDayForecast.length > 0 && (
+          <View style={styles.forecastStrip}>
+            {threeDayForecast.map(day => (
+              <View key={day.date} style={styles.forecastDay}>
+                <Text style={styles.forecastDayLabel}>{format(new Date(day.date), 'EEE')}</Text>
+                <Ionicons name={weatherIcon(day.weatherCode) as any} size={18} color={colors.accent} />
+                <Text style={styles.forecastDayTemp}>{Math.round(day.tempMaxC)}°</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {nextUpEvent && (
           <View style={styles.nextUpCard}>
-            <Text style={styles.nextUpLabel}>NEXT UP</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Text style={styles.nextUpLabel}>NEXT UP</Text>
+              {!nextUpEvent.event.isAllDay && (
+                <Text style={styles.nextUpCountdown}>{countdownLabel(nextUpEvent.occurrenceDate)}</Text>
+              )}
+            </View>
             <Text style={styles.nextUpTitle}>{nextUpEvent.event.title}</Text>
             <Text style={styles.nextUpTime}>
               {nextUpEvent.event.isAllDay ? 'All day' : format(nextUpEvent.occurrenceDate, 'h:mm a')}
+              {(() => {
+                const years = yearsSinceOriginal(nextUpEvent.event, nextUpEvent.occurrenceDate);
+                if (years === null || years <= 0) return '';
+                if (nextUpEvent.event.category === 'birthday') return ` · Turns ${years}`;
+                if (nextUpEvent.event.category === 'anniversary') return ` · ${years} year${years === 1 ? '' : 's'}`;
+                return '';
+              })()}
             </Text>
           </View>
         )}
@@ -227,9 +299,17 @@ function makeStyles(colors: ThemeColors) {
     container: { flex: 1, backgroundColor: colors.background },
     scrollContent: { padding: spacing.xl, paddingBottom: 40 },
     header: { marginBottom: spacing.xl },
+    hintBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.accent + '18', borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },
+    hintText: { flex: 1, fontSize: 12, color: colors.textPrimary },
     dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     weatherChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
     weatherText: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
+    sunRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs },
+    sunText: { fontSize: 11, color: colors.textSecondary },
+    forecastStrip: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, marginBottom: spacing.lg },
+    forecastDay: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.md, paddingVertical: spacing.sm, gap: 4 },
+    forecastDayLabel: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
+    forecastDayTemp: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
     greeting: { ...typography.greeting, color: colors.textSecondary },
     date: { ...typography.screenTitle, marginTop: 2, color: colors.textPrimary },
     nextUpCard: {
@@ -240,6 +320,7 @@ function makeStyles(colors: ThemeColors) {
       ...cardShadow,
     },
     nextUpLabel: { ...typography.label, color: colors.textOnDarkMuted },
+    nextUpCountdown: { fontSize: 12, fontWeight: '700', color: colors.accent },
     nextUpTitle: { ...typography.cardTitle, color: colors.textOnDark, marginTop: 6 },
     nextUpTime: { color: colors.textOnDarkMuted, fontSize: 13, marginTop: 4 },
     summaryRow: { flexDirection: 'row', gap: spacing.sm + 2, marginBottom: spacing.xxl },

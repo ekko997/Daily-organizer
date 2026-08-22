@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { OrganizerEvent, CATEGORY_STYLES } from '../models/Event';
+import { loadSettings } from './settingsStorageService';
 
 export const REMINDER_CATEGORY = 'reminder-actions';
 const SNOOZE_MINUTES = 10;
@@ -30,14 +31,38 @@ function notificationId(eventId: string): string {
   return `event-${eventId}`;
 }
 
+/** If quiet hours are enabled and this date falls inside the window, pushes
+ * it forward to the end of the quiet window instead of firing silently
+ * skipped — so reminders are delayed, not lost. */
+async function applyQuietHours(date: Date): Promise<Date> {
+  const settings = await loadSettings();
+  if (!settings.quietHoursEnabled) return date;
+  const start = settings.quietHoursStart ?? 22;
+  const end = settings.quietHoursEnd ?? 7;
+  const hour = date.getHours();
+
+  const inQuietWindow = start <= end ? (hour >= start && hour < end) : (hour >= start || hour < end);
+  if (!inQuietWindow) return date;
+
+  const adjusted = new Date(date);
+  if (hour >= start) {
+    // Same night, push to end-of-window the next calendar day.
+    adjusted.setDate(adjusted.getDate() + 1);
+  }
+  adjusted.setHours(end, 0, 0, 0);
+  return adjusted;
+}
+
 /** Schedules (or replaces) a local reminder notification for an event. */
 export async function scheduleReminder(event: OrganizerEvent): Promise<void> {
   await cancelReminder(event.id);
   if (event.reminderMinutesBefore < 0) return;
 
   const eventDate = new Date(event.date);
-  const fireDate = new Date(eventDate.getTime() - event.reminderMinutesBefore * 60000);
+  let fireDate = new Date(eventDate.getTime() - event.reminderMinutesBefore * 60000);
   if (fireDate <= new Date()) return;
+
+  fireDate = await applyQuietHours(fireDate);
 
   await Notifications.scheduleNotificationAsync({
     identifier: notificationId(event.id),

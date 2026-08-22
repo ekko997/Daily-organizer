@@ -11,6 +11,7 @@ import { requestNotificationPermission, snoozeReminder } from './src/services/no
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
 import { isBiometricAvailable, authenticateWithBiometrics } from './src/services/biometricService';
 import { subscribeToEvents, subscribeToFamilyActivity, CloudEvent, EventScope } from './src/services/cloudEventService';
+import { occurrencesInRange } from './src/services/recurrenceEngine';
 import { CATEGORY_STYLES } from './src/models/Event';
 import TodayScreen from './src/screens/TodayScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
@@ -170,6 +171,16 @@ function MainApp() {
     }
     setEvents(rawEvents.filter(e => e.scope !== 'family' || !e.assignedTo || e.assignedTo === user.uid));
   }, [rawEvents, restrictToOwnEvents, user?.uid]);
+
+  // Keeps the app icon's badge showing today's event count, so you can see
+  // at a glance how busy the day is without opening the app.
+  useEffect(() => {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    let count = 0;
+    for (const event of events) count += occurrencesInRange(event, start, end).length;
+    Notifications.setBadgeCountAsync(count).catch(() => {});
+  }, [events]);
 
   // Notifies about family calendar changes made by other members while this
   // app is running (open or recently backgrounded). This is NOT the same as

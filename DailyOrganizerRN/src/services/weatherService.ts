@@ -13,6 +13,8 @@ export interface DailyForecast {
   tempMaxC: number;
   tempMinC: number;
   weatherCode: number;
+  sunrise?: string;
+  sunset?: string;
 }
 
 /** Looks up a city name and returns candidate matches with coordinates. */
@@ -47,7 +49,7 @@ export async function loadForecast(lat: number, lon: number): Promise<DailyForec
 
   try {
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weathercode&forecast_days=16&timezone=auto`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset&forecast_days=16&timezone=auto`
     );
     if (res.ok) {
       const data = await res.json();
@@ -56,6 +58,8 @@ export async function loadForecast(lat: number, lon: number): Promise<DailyForec
         tempMaxC: data.daily.temperature_2m_max[i],
         tempMinC: data.daily.temperature_2m_min[i],
         weatherCode: data.daily.weathercode[i],
+        sunrise: data.daily.sunrise?.[i],
+        sunset: data.daily.sunset?.[i],
       }));
       await AsyncStorage.setItem(cacheKey, JSON.stringify(days));
       forecast = days;

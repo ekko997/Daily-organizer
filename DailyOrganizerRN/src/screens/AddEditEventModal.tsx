@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform, Linking, Share } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
@@ -14,6 +14,14 @@ import { capitalizeFirst } from '../utils/textUtils';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
+
+const QUICK_PRESETS: { title: string; category: EventCategory }[] = [
+  { title: 'Dentist', category: 'appointment' },
+  { title: 'Doctor', category: 'appointment' },
+  { title: 'Team meeting', category: 'meeting' },
+  { title: 'Call', category: 'work' },
+  { title: 'Birthday', category: 'birthday' },
+];
 
 interface Props {
   visible: boolean;
@@ -197,6 +205,36 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
     onClose();
   }
 
+  async function handleDuplicate() {
+    if (!editingEvent || !user) return;
+    const duplicate: CloudEvent = {
+      ...editingEvent,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      title: `${editingEvent.title} (copy)`,
+      createdAt: new Date().toISOString(),
+      lastModifiedBy: user.uid,
+      excludedDates: undefined,
+    };
+    await upsertCloudEvent(duplicate);
+    await scheduleReminder(duplicate);
+    haptics.success();
+    showToast({ message: 'Event duplicated' });
+    onClose();
+  }
+
+  async function handleShareEvent() {
+    if (!editingEvent) return;
+    const lines = [
+      editingEvent.title,
+      format(new Date(editingEvent.date), editingEvent.isAllDay ? 'EEEE, MMMM d' : 'EEEE, MMMM d, h:mm a'),
+      editingEvent.location ? `Location: ${editingEvent.location}` : '',
+      editingEvent.notes || '',
+    ].filter(Boolean);
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch { /* user cancelled */ }
+  }
+
   function openLocation() {
     if (!location.trim()) return;
     Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(location.trim())}`);
@@ -225,6 +263,19 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
           <Pressable style={({ pressed }) => [styles.saveButton, pressed && { transform: [{ scale: 0.95 }], opacity: 0.85 }]} accessibilityLabel="Save event" accessibilityRole="button" onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
         </View>
+
+        {editingEvent && (
+          <View style={styles.quickActionsRow}>
+            <Pressable style={styles.quickActionButton} onPress={handleDuplicate} accessibilityLabel="Duplicate event" accessibilityRole="button">
+              <Ionicons name="copy-outline" size={14} color={colors.textPrimary} />
+              <Text style={styles.quickActionText}>Duplicate</Text>
+            </Pressable>
+            <Pressable style={styles.quickActionButton} onPress={handleShareEvent} accessibilityLabel="Share event" accessibilityRole="button">
+              <Ionicons name="share-outline" size={14} color={colors.textPrimary} />
+              <Text style={styles.quickActionText}>Share</Text>
+            </Pressable>
+          </View>
+        )}
 
         {!editingEvent && family && (
           <View style={styles.scopeWrapper}>
@@ -286,6 +337,21 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
                 ))}
               </View>
             )}
+          </View>
+        )}
+
+        {!editingEvent && !title && (
+          <View style={styles.presetRow}>
+            {QUICK_PRESETS.map(preset => (
+              <Pressable
+                key={preset.title}
+                style={styles.presetChip}
+                onPress={() => { setTitle(preset.title); setCategory(preset.category); if (defaultsToYearlyRecurrence(preset.category)) setRecurrence('yearly'); }}
+              >
+                <Ionicons name={CATEGORY_STYLES[preset.category].icon as any} size={12} color={colors.textSecondary} />
+                <Text style={styles.presetChipText}>{preset.title}</Text>
+              </Pressable>
+            ))}
           </View>
         )}
 
@@ -466,6 +532,12 @@ function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
+    quickActionsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md, marginTop: -spacing.md },
+    quickActionButton: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+    quickActionText: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
+    presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm },
+    presetChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.sm + 2, paddingVertical: 5 },
+    presetChipText: { fontSize: 11, color: colors.textSecondary },
     title: { ...typography.body, fontSize: 16, color: colors.textPrimary },
     cancelButton: { backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
     cancel: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, addMonths, addWeeks, isSameMonth, endOfDay, startOfWeek, addDays } from 'date-fns';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEvents } from '../utils/EventsContext';
 import { gridDates, isSameDay, dayStart, isoDateKey } from '../utils/dateUtils';
 import { occurrencesInRange } from '../services/recurrenceEngine';
@@ -12,6 +13,7 @@ import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/th
 import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
 import { colorForMember } from '../utils/memberColor';
+import { haptics } from '../utils/haptics';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
@@ -34,6 +36,42 @@ export default function CalendarScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
+  const [loadingExtras, setLoadingExtras] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Remember the last Month/Week choice between app sessions.
+  useEffect(() => {
+    AsyncStorage.getItem('calendar_view_mode_v1').then(saved => {
+      if (saved === 'month' || saved === 'week') setViewMode(saved);
+    });
+  }, []);
+
+  function changeViewMode(next: ViewMode) {
+    setViewMode(next);
+    AsyncStorage.setItem('calendar_view_mode_v1', next);
+    if (next === 'week') setDisplayedWeekStart(startOfWeek(selectedDate, { weekStartsOn: 1 }));
+  }
+
+  function jumpToToday() {
+    haptics.light();
+    const now = new Date();
+    setSelectedDate(now);
+    setDisplayedMonth(now);
+    setDisplayedWeekStart(startOfWeek(now, { weekStartsOn: 1 }));
+  }
+
+  function onRefresh() {
+    haptics.light();
+    setRefreshing(true);
+    setLoadingExtras(true);
+    Promise.all([
+      loadHolidays(countryCode, holidayYear, region || undefined).then(setHolidays),
+      latitude != null && longitude != null ? loadForecast(latitude, longitude).then(setForecast) : Promise.resolve(),
+    ]).finally(() => {
+      setLoadingExtras(false);
+      setRefreshing(false);
+    });
+  }
 
   const holidayYear = viewMode === 'month' ? displayedMonth.getFullYear() : displayedWeekStart.getFullYear();
 
@@ -112,16 +150,24 @@ export default function CalendarScreen() {
       <View style={styles.viewToggleRow}>
         <Pressable
           style={[styles.viewToggleButton, viewMode === 'month' && styles.viewToggleButtonActive]}
-          onPress={() => setViewMode('month')}
+          onPress={() => changeViewMode('month')}
+          accessibilityLabel="Month view"
+          accessibilityRole="button"
         >
           <Text style={[styles.viewToggleText, viewMode === 'month' && styles.viewToggleTextActive]}>Month</Text>
         </Pressable>
         <Pressable
           style={[styles.viewToggleButton, viewMode === 'week' && styles.viewToggleButtonActive]}
-          onPress={() => { setViewMode('week'); setDisplayedWeekStart(startOfWeek(selectedDate, { weekStartsOn: 1 })); }}
+          onPress={() => changeViewMode('week')}
+          accessibilityLabel="Week view"
+          accessibilityRole="button"
         >
           <Text style={[styles.viewToggleText, viewMode === 'week' && styles.viewToggleTextActive]}>Week</Text>
         </Pressable>
+        <Pressable style={styles.todayJumpButton} onPress={jumpToToday} accessibilityLabel="Jump to today" accessibilityRole="button">
+          <Text style={styles.todayJumpText}>Today</Text>
+        </Pressable>
+        {loadingExtras && <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginLeft: spacing.sm }} />}
       </View>
 
       {viewMode === 'month' ? (
@@ -195,7 +241,7 @@ export default function CalendarScreen() {
 
       {family ? (
         <View style={styles.scopeSelectorWrapper}>
-          <Pressable style={styles.scopeSelectorButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
+          <Pressable style={styles.scopeSelectorButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)} accessibilityLabel="Switch calendar" accessibilityRole="button">
             <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
             <Text style={styles.scopeSelectorText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
             <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
@@ -258,6 +304,7 @@ export default function CalendarScreen() {
         data={selectedDayEvents}
         keyExtractor={item => item.id}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         ListEmptyComponent={
           <EmptyState icon="calendar-clear-outline" title="Nothing scheduled" subtitle="Tap + to add something for this day" />
         }
@@ -326,7 +373,9 @@ function makeStyles(colors: ThemeColors) {
     monthLabel: { ...typography.screenTitle, fontSize: 22, color: colors.textPrimary },
     monthNav: { flexDirection: 'row', gap: spacing.sm },
     navButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-    viewToggleRow: { flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.xl, marginTop: spacing.md },
+    viewToggleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.xl, marginTop: spacing.md },
+    todayJumpButton: { marginLeft: 'auto', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radii.pill, borderWidth: 1, borderColor: colors.border },
+    todayJumpText: { fontSize: 12, fontWeight: '600', color: colors.accent },
     viewToggleButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radii.pill, backgroundColor: colors.surface },
     viewToggleButtonActive: { backgroundColor: colors.surfaceDark },
     viewToggleText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },

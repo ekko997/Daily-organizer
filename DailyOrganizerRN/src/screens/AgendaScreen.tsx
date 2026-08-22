@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SectionList, Pressable, SafeAreaView, TextInput, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, addYears, startOfToday } from 'date-fns';
+import { format, addYears, startOfToday, isToday, isTomorrow } from 'date-fns';
 import { useEvents } from '../utils/EventsContext';
 import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
@@ -10,6 +10,7 @@ import { useTheme } from '../utils/ThemeContext';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
+import { haptics } from '../utils/haptics';
 
 export default function AgendaScreen() {
   const { events } = useEvents();
@@ -25,6 +26,7 @@ export default function AgendaScreen() {
   // re-fetch — this just gives the expected tactile confirmation that
   // everything's current when someone pulls down.
   const onRefresh = useCallback(() => {
+    haptics.light();
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 600);
   }, []);
@@ -52,13 +54,15 @@ export default function AgendaScreen() {
 
     return Array.from(grouped.entries())
       .map(([key, items]) => ({
-        title: format(items[0].date, 'EEEE, MMM d'),
+        title: isToday(items[0].date) ? 'Today' : isTomorrow(items[0].date) ? 'Tomorrow' : format(items[0].date, 'EEEE, MMM d'),
         data: items
           .map(item => ({ ...events.find(e => e.id === item.eventId)!, occurrenceDate: item.date }))
           .filter(item => !query || item.title.toLowerCase().includes(query)),
       }))
       .filter(section => section.data.length > 0);
   }, [events, searchQuery]);
+
+  const resultCount = useMemo(() => sections.reduce((sum, s) => sum + s.data.length, 0), [sections]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -80,6 +84,10 @@ export default function AgendaScreen() {
           </Pressable>
         )}
       </View>
+
+      {searchQuery.trim().length > 0 && (
+        <Text style={styles.resultCount}>{resultCount} result{resultCount === 1 ? '' : 's'}</Text>
+      )}
 
       {sections.length === 0 ? (
         <EmptyState
@@ -143,6 +151,7 @@ function makeStyles(colors: ThemeColors) {
       marginBottom: spacing.md,
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
+    resultCount: { fontSize: 12, color: colors.textSecondary, paddingHorizontal: spacing.xl, marginBottom: spacing.sm },
     sectionHeader: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginTop: spacing.lg, marginBottom: spacing.sm },
     row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.xs, ...cardShadow },
     categoryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
