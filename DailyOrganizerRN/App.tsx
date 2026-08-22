@@ -249,6 +249,10 @@ function MainApp() {
             tabBarActiveTintColor: colors.accent,
             tabBarInactiveTintColor: colors.textSecondary,
             tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
+            // Native, built-in synchronized transition: both the outgoing and
+            // incoming tab shift together in the direction of travel, rather
+            // than a hand-rolled animation on just the incoming screen.
+            animation: 'shift',
           }}
         >
           <Tab.Screen name="Today" component={TodayScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="sunny" size={size} color={color} /> }} />
