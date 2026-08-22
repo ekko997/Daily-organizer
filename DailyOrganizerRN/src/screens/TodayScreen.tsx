@@ -14,7 +14,7 @@ import { useTheme } from '../utils/ThemeContext';
 import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
 import { colorForMember } from '../utils/memberColor';
-import { yearsSinceOriginal, countdownLabel } from '../utils/dateMath';
+import { yearsSinceOriginal, countdownLabel, withOccurrenceOverride } from '../utils/dateMath';
 import AddEditEventModal from './AddEditEventModal';
 import SwipeableRow from '../components/SwipeableRow';
 import ScreenTransition from '../components/ScreenTransition';
@@ -79,7 +79,7 @@ export default function TodayScreen() {
     const items: { event: (typeof events)[number]; occurrenceDate: Date }[] = [];
     for (const event of events) {
       for (const occ of occurrencesInRange(event, start, end)) {
-        items.push({ event, occurrenceDate: occ });
+        items.push({ event: withOccurrenceOverride(event, occ), occurrenceDate: occ });
       }
     }
     return items.sort((a, b) => a.occurrenceDate.getTime() - b.occurrenceDate.getTime());
@@ -92,7 +92,7 @@ export default function TodayScreen() {
     const items: { event: (typeof events)[number]; occurrenceDate: Date }[] = [];
     for (const event of events) {
       for (const occ of occurrencesInRange(event, start, end)) {
-        items.push({ event, occurrenceDate: occ });
+        items.push({ event: withOccurrenceOverride(event, occ), occurrenceDate: occ });
       }
     }
     return items.sort((a, b) => a.occurrenceDate.getTime() - b.occurrenceDate.getTime());

@@ -41,6 +41,18 @@ export interface OrganizerEvent {
   // ISO date string — when set, the event spans from `date` through `endDate`
   // inclusive (a multi-day trip/vacation). Only supported for non-recurring events.
   endDate?: string;
+  // Per-occurrence overrides for a recurring event, keyed by the occurrence's
+  // ORIGINAL yyyy-MM-dd date. Deliberately limited to title/notes/location/
+  // meetingLink — the date/time itself can't be overridden per-occurrence,
+  // since safely relocating a single instance in time (without breaking how
+  // every screen groups events by day) is significantly more complex and
+  // higher-risk than editing its details in place.
+  occurrenceOverrides?: Record<string, {
+    title?: string;
+    notes?: string;
+    location?: string;
+    meetingLink?: string;
+  }>;
   // uid of the family member this event belongs to (only meaningful for
   // scope: 'family' events) — lets a shared calendar show whose appointment it is.
   assignedTo?: string;

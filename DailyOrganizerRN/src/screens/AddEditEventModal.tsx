@@ -59,6 +59,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [assignedTo, setAssignedTo] = useState<string | undefined>(undefined);
   const [assignDropdownOpen, setAssignDropdownOpen] = useState(false);
   const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
+  const [saveChoiceOpen, setSaveChoiceOpen] = useState(false);
   const [titleError, setTitleError] = useState(false);
 
   const currentScope = editingEvent?.scope ?? selectedScope;
@@ -80,10 +81,13 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   useEffect(() => {
     if (visible) {
       if (editingEvent) {
-        setTitle(editingEvent.title);
-        setNotes(editingEvent.notes);
-        setLocation(editingEvent.location || '');
-        setMeetingLink(editingEvent.meetingLink || '');
+        // If this specific occurrence has its own override (title/notes/
+        // location/meetingLink), show those instead of the base series values.
+        const override = occurrenceDate ? editingEvent.occurrenceOverrides?.[format(occurrenceDate, 'yyyy-MM-dd')] : undefined;
+        setTitle(override?.title ?? editingEvent.title);
+        setNotes(override?.notes ?? editingEvent.notes);
+        setLocation(override?.location ?? editingEvent.location ?? '');
+        setMeetingLink(override?.meetingLink ?? editingEvent.meetingLink ?? '');
         setDate(new Date(editingEvent.date));
         setIsAllDay(editingEvent.isAllDay);
         setIsMultiDay(!!editingEvent.endDate);
@@ -110,6 +114,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       setScopeDropdownOpen(false);
       setAssignDropdownOpen(false);
       setDeleteChoiceOpen(false);
+      setSaveChoiceOpen(false);
       setTitleError(false);
     }
   }, [visible, editingEventId]);
@@ -135,6 +140,18 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       return;
     }
     setTitleError(false);
+
+    // Editing a specific occurrence of a recurring event needs to ask which
+    // scope the changes apply to before actually saving anything.
+    if (editingEvent && editingEvent.recurrence !== 'none' && occurrenceDate) {
+      setSaveChoiceOpen(true);
+      return;
+    }
+    await performSeriesSave();
+  }
+
+  async function performSeriesSave() {
+    if (!user) return;
     // Editing keeps the event's original scope/owner; new events use whichever
     // calendar (Personal / Family) was picked in this form.
     const scope = editingEvent?.scope ?? selectedScope;
@@ -157,16 +174,49 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       lastModifiedBy: user.uid,
       excludedDates: editingEvent?.excludedDates,
       endDate: (isMultiDay && recurrence === 'none' && endDate) ? endDate.toISOString() : undefined,
+      occurrenceOverrides: editingEvent?.occurrenceOverrides,
     };
     try {
       await upsertCloudEvent(event);
       await scheduleReminder(event);
       haptics.success();
       showToast({ message: editingEvent ? 'Event updated' : 'Event added' });
+      setSaveChoiceOpen(false);
       onClose();
     } catch (err: any) {
       // Guarantees a save can never fail silently again — whatever the
       // actual cause, the person sees a reason instead of nothing happening.
+      haptics.warning();
+      showToast({ message: `Couldn't save: ${err?.message || 'unknown error'}`, duration: 5000 });
+    }
+  }
+
+  /** Saves title/notes/location/meetingLink changes to just this occurrence,
+   * via an override — leaves the rest of the series and this event's date/
+   * category/recurrence/reminder untouched. */
+  async function performOccurrenceSave() {
+    if (!user || !editingEvent || !occurrenceDate) return;
+    const key = format(occurrenceDate, 'yyyy-MM-dd');
+    const updated: CloudEvent = {
+      ...editingEvent,
+      lastModifiedBy: user.uid,
+      occurrenceOverrides: {
+        ...(editingEvent.occurrenceOverrides || {}),
+        [key]: {
+          title: title.trim(),
+          notes,
+          location: location.trim() || undefined,
+          meetingLink: category === 'meeting' ? (meetingLink.trim() || undefined) : undefined,
+        },
+      },
+    };
+    try {
+      await upsertCloudEvent(updated);
+      haptics.success();
+      showToast({ message: 'This occurrence updated' });
+      setSaveChoiceOpen(false);
+      onClose();
+    } catch (err: any) {
       haptics.warning();
       showToast({ message: `Couldn't save: ${err?.message || 'unknown error'}`, duration: 5000 });
     }
@@ -263,6 +313,24 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           <Text style={styles.title}>{editingEvent ? 'Edit Event' : 'New Event'}</Text>
           <Pressable style={({ pressed }) => [styles.saveButton, pressed && { transform: [{ scale: 0.95 }], opacity: 0.85 }]} accessibilityLabel="Save event" accessibilityRole="button" onPress={handleSave}><Text style={styles.save}>Save</Text></Pressable>
         </View>
+
+        {saveChoiceOpen && (
+          <View style={styles.deleteChoiceBox}>
+            <Text style={styles.deleteChoiceLabel}>
+              This is a repeating event. Title, notes, location, and meeting link changes can apply to just this date —
+              date, category, and repeat settings only apply if you choose the entire series.
+            </Text>
+            <Pressable style={styles.deleteChoiceButton} onPress={performOccurrenceSave}>
+              <Text style={styles.saveChoiceConfirm}>Just this occurrence</Text>
+            </Pressable>
+            <Pressable style={styles.deleteChoiceButton} onPress={performSeriesSave}>
+              <Text style={styles.saveChoiceConfirm}>The entire series</Text>
+            </Pressable>
+            <Pressable style={styles.deleteChoiceButton} onPress={() => setSaveChoiceOpen(false)}>
+              <Text style={{ color: colors.textSecondary, fontSize: 15 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        )}
 
         {editingEvent && (
           <View style={styles.quickActionsRow}>
@@ -590,5 +658,6 @@ function makeStyles(colors: ThemeColors) {
     deleteChoiceBox: { marginTop: spacing.xxl, backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, gap: spacing.xs },
     deleteChoiceLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.sm, textAlign: 'center' },
     deleteChoiceButton: { alignItems: 'center', padding: spacing.md },
+    saveChoiceConfirm: { color: colors.accent, fontSize: 15, fontWeight: '600' },
   });
 }

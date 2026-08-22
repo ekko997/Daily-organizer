@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, addMonths, addWeeks, isSameMonth, endOfDay, startOfWeek, addDays } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,6 +13,7 @@ import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/th
 import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
 import { colorForMember } from '../utils/memberColor';
+import { withOccurrenceOverride } from '../utils/dateMath';
 import { haptics } from '../utils/haptics';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
@@ -20,7 +21,12 @@ import EmptyState from '../components/EmptyState';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-type ViewMode = 'month' | 'week';
+type ViewMode = 'month' | 'week' | 'day';
+
+// Hour range shown in Day view — full 24h isn't usually necessary and just
+// adds scrolling; this range covers the vast majority of real schedules.
+const DAY_VIEW_START_HOUR = 6;
+const DAY_VIEW_END_HOUR = 23;
 
 export default function CalendarScreen() {
   const { events, countryCode, region, latitude, longitude, activeScope, setActiveScope } = useEvents();
@@ -42,7 +48,7 @@ export default function CalendarScreen() {
   // Remember the last Month/Week choice between app sessions.
   useEffect(() => {
     AsyncStorage.getItem('calendar_view_mode_v1').then(saved => {
-      if (saved === 'month' || saved === 'week') setViewMode(saved);
+      if (saved === 'month' || saved === 'week' || saved === 'day') setViewMode(saved);
     });
   }, []);
 
@@ -102,9 +108,18 @@ export default function CalendarScreen() {
   }
 
   const selectedDayEvents = useMemo(
-    () => eventsOn(selectedDate).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    () => eventsOn(selectedDate)
+      .map(e => withOccurrenceOverride(e, selectedDate))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     [events, selectedDate]
   );
+
+  const hourSlots = useMemo(
+    () => Array.from({ length: DAY_VIEW_END_HOUR - DAY_VIEW_START_HOUR + 1 }, (_, i) => DAY_VIEW_START_HOUR + i),
+    []
+  );
+  const timedEventsForSelectedDate = useMemo(() => selectedDayEvents.filter(e => !e.isAllDay), [selectedDayEvents]);
+  const allDayEventsForSelectedDate = useMemo(() => selectedDayEvents.filter(e => e.isAllDay), [selectedDayEvents]);
   const selectedHoliday = holidays.get(isoDateKey(selectedDate));
 
   function memberName(uid: string): string {
@@ -154,7 +169,7 @@ export default function CalendarScreen() {
           accessibilityLabel="Month view"
           accessibilityRole="button"
         >
-          <Text style={[styles.viewToggleText, viewMode === 'month' && styles.viewToggleTextActive]}>Month</Text>
+          <Text style={[styles.viewToggleText, viewMode === 'month' && styles.viewToggleTextActive]} maxFontSizeMultiplier={1.3}>Month</Text>
         </Pressable>
         <Pressable
           style={[styles.viewToggleButton, viewMode === 'week' && styles.viewToggleButtonActive]}
@@ -162,19 +177,39 @@ export default function CalendarScreen() {
           accessibilityLabel="Week view"
           accessibilityRole="button"
         >
-          <Text style={[styles.viewToggleText, viewMode === 'week' && styles.viewToggleTextActive]}>Week</Text>
+          <Text style={[styles.viewToggleText, viewMode === 'week' && styles.viewToggleTextActive]} maxFontSizeMultiplier={1.3}>Week</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.viewToggleButton, viewMode === 'day' && styles.viewToggleButtonActive]}
+          onPress={() => changeViewMode('day')}
+          accessibilityLabel="Day view"
+          accessibilityRole="button"
+        >
+          <Text style={[styles.viewToggleText, viewMode === 'day' && styles.viewToggleTextActive]} maxFontSizeMultiplier={1.3}>Day</Text>
         </Pressable>
         <Pressable style={styles.todayJumpButton} onPress={jumpToToday} accessibilityLabel="Jump to today" accessibilityRole="button">
-          <Text style={styles.todayJumpText}>Today</Text>
+          <Text style={styles.todayJumpText} maxFontSizeMultiplier={1.3}>Today</Text>
         </Pressable>
         {loadingExtras && <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginLeft: spacing.sm }} />}
       </View>
 
-      {viewMode === 'month' ? (
+      {viewMode === 'day' && (
+        <View style={styles.dayNavRow}>
+          <Pressable style={styles.navButton} onPress={() => setSelectedDate(addDays(selectedDate, -1))} accessibilityLabel="Previous day" accessibilityRole="button">
+            <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
+          </Pressable>
+          <Text style={styles.dayNavLabel}>{format(selectedDate, 'EEEE, MMM d')}</Text>
+          <Pressable style={styles.navButton} onPress={() => setSelectedDate(addDays(selectedDate, 1))} accessibilityLabel="Next day" accessibilityRole="button">
+            <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
+          </Pressable>
+        </View>
+      )}
+
+      {viewMode === 'month' && (
         <>
           <View style={styles.weekdayRow}>
             {WEEKDAY_LABELS.map((label, i) => (
-              <Text key={i} style={styles.weekdayLabel}>{label}</Text>
+              <Text key={i} style={styles.weekdayLabel} maxFontSizeMultiplier={1.3}>{label}</Text>
             ))}
           </View>
           <View style={styles.grid}>
@@ -212,7 +247,9 @@ export default function CalendarScreen() {
             ))}
           </View>
         </>
-      ) : (
+      )}
+
+      {viewMode === 'week' && (
         <View style={styles.weekStrip}>
           {weekDays.map((date, i) => {
             const holiday = holidays.get(isoDateKey(date));
@@ -222,7 +259,7 @@ export default function CalendarScreen() {
 
             return (
               <Pressable key={i} style={({ pressed }) => [styles.weekDayCard, selected && styles.weekDayCardSelected, pressed && { opacity: 0.7 }]} onPress={() => setSelectedDate(date)}>
-                <Text style={[styles.weekDayLabel, selected && styles.weekDayLabelSelected]}>{WEEKDAY_LABELS[i]}</Text>
+                <Text style={[styles.weekDayLabel, selected && styles.weekDayLabelSelected]} maxFontSizeMultiplier={1.3}>{WEEKDAY_LABELS[i]}</Text>
                 <View style={[
                   styles.weekDayNumber,
                   today && !selected && styles.dayCircleToday,
@@ -237,6 +274,55 @@ export default function CalendarScreen() {
             );
           })}
         </View>
+      )}
+
+      {viewMode === 'day' && (
+        <ScrollView style={styles.hourGrid} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          {allDayEventsForSelectedDate.length > 0 && (
+            <View style={styles.allDaySection}>
+              {allDayEventsForSelectedDate.map(item => {
+                const style = CATEGORY_STYLES[item.category];
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.allDayChip, { backgroundColor: style.color + '22' }]}
+                    onPress={() => { setEditingEventId(item.id); setModalVisible(true); }}
+                  >
+                    <Ionicons name={style.icon as any} size={12} color={style.color} />
+                    <Text style={[styles.allDayChipText, { color: style.color }]} numberOfLines={1}>{item.title}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          {hourSlots.map(hour => {
+            const hourEvents = timedEventsForSelectedDate.filter(item => new Date(item.date).getHours() === hour);
+            return (
+              <View key={hour} style={styles.hourRow}>
+                <Text style={styles.hourLabel}>{format(new Date(2000, 0, 1, hour), 'h a')}</Text>
+                <View style={styles.hourContent}>
+                  {hourEvents.length === 0 ? (
+                    <View style={styles.hourLine} />
+                  ) : (
+                    hourEvents.map(item => {
+                      const style = CATEGORY_STYLES[item.category];
+                      return (
+                        <Pressable
+                          key={item.id}
+                          style={[styles.hourEventChip, { borderLeftColor: style.color }]}
+                          onPress={() => { setEditingEventId(item.id); setModalVisible(true); }}
+                        >
+                          <Text style={styles.hourEventTitle} numberOfLines={1}>{item.title}</Text>
+                          <Text style={styles.hourEventTime}>{format(new Date(item.date), 'h:mm a')}</Text>
+                        </Pressable>
+                      );
+                    })
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
       )}
 
       {family ? (
@@ -321,7 +407,7 @@ export default function CalendarScreen() {
                   {item.assignedTo && (
                     <View style={[styles.assignedBadge, { backgroundColor: colorForMember(item.assignedTo) + '22' }]}>
                       <View style={[styles.assignedDot, { backgroundColor: colorForMember(item.assignedTo) }]} />
-                      <Text style={[styles.assignedText, { color: colorForMember(item.assignedTo) }]}>{memberName(item.assignedTo)}</Text>
+                      <Text style={[styles.assignedText, { color: colorForMember(item.assignedTo) }]} maxFontSizeMultiplier={1.3}>{memberName(item.assignedTo)}</Text>
                     </View>
                   )}
                 </View>
@@ -394,6 +480,19 @@ function makeStyles(colors: ThemeColors) {
     dayTextHoliday: { color: colors.holiday, fontWeight: '600' },
     dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent, marginTop: 3 },
     weekStrip: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 4 },
+    dayNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginTop: spacing.md },
+    dayNavLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    hourGrid: { paddingHorizontal: spacing.xl, marginTop: spacing.md, maxHeight: 380 },
+    allDaySection: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.md },
+    allDayChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: radii.pill, paddingHorizontal: spacing.sm + 2, paddingVertical: 5, maxWidth: 160 },
+    allDayChipText: { fontSize: 11, fontWeight: '600' },
+    hourRow: { flexDirection: 'row', minHeight: 40 },
+    hourLabel: { width: 52, fontSize: 11, color: colors.textSecondary, paddingTop: 2 },
+    hourContent: { flex: 1, justifyContent: 'center', paddingBottom: spacing.xs },
+    hourLine: { height: 1, backgroundColor: colors.border },
+    hourEventChip: { backgroundColor: colors.surface, borderLeftWidth: 3, borderRadius: radii.sm, padding: spacing.sm, marginBottom: 4 },
+    hourEventTitle: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
+    hourEventTime: { fontSize: 10, color: colors.textSecondary, marginTop: 1 },
     weekDayCard: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.md, gap: 4 },
     weekDayCardSelected: { backgroundColor: colors.surfaceDark },
     weekDayLabel: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },

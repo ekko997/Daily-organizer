@@ -1,4 +1,4 @@
-import { differenceInYears, differenceInMinutes, differenceInHours } from 'date-fns';
+import { differenceInYears, differenceInMinutes, differenceInHours, format } from 'date-fns';
 import { OrganizerEvent } from '../models/Event';
 
 /** For a recurring yearly birthday/anniversary, how many years since the original date. */
@@ -21,4 +21,14 @@ export function countdownLabel(target: Date): string {
   }
   const days = Math.floor(hours / 24);
   return `in ${days} day${days === 1 ? '' : 's'}`;
+}
+
+/** Merges a per-occurrence override (title/notes/location/meetingLink) into
+ * a shallow copy of the event, for display purposes only — the stored base
+ * event is never mutated. Returns the event unchanged if no override exists
+ * for this occurrence's date. */
+export function withOccurrenceOverride<T extends OrganizerEvent>(event: T, occurrenceDate: Date): T {
+  const override = event.occurrenceOverrides?.[format(occurrenceDate, 'yyyy-MM-dd')];
+  if (!override) return event;
+  return { ...event, ...override };
 }

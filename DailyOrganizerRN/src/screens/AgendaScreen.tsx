@@ -11,6 +11,7 @@ import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
 import { haptics } from '../utils/haptics';
+import { withOccurrenceOverride } from '../utils/dateMath';
 
 export default function AgendaScreen() {
   const { events } = useEvents();
@@ -56,7 +57,7 @@ export default function AgendaScreen() {
       .map(([key, items]) => ({
         title: isToday(items[0].date) ? 'Today' : isTomorrow(items[0].date) ? 'Tomorrow' : format(items[0].date, 'EEEE, MMM d'),
         data: items
-          .map(item => ({ ...events.find(e => e.id === item.eventId)!, occurrenceDate: item.date }))
+          .map(item => ({ ...withOccurrenceOverride(events.find(e => e.id === item.eventId)!, item.date), occurrenceDate: item.date }))
           .filter(item => !query || item.title.toLowerCase().includes(query)),
       }))
       .filter(section => section.data.length > 0);
