@@ -27,6 +27,7 @@ import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
 import { ToastProvider, useToast } from './src/utils/ToastContext';
 import { PendingInviteContext } from './src/utils/PendingInviteContext';
 import { haptics } from './src/utils/haptics';
+import { memberDisplayName } from './src/utils/memberColor';
 import { useFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 
 const Tab = createBottomTabNavigator();
@@ -190,8 +191,7 @@ function MainApp() {
   useEffect(() => {
     if (!user || !family) return;
     const unsubscribe = subscribeToFamilyActivity(user.uid, family.id, ({ type, event }) => {
-      const authorEmail = members.find(m => m.uid === event.lastModifiedBy)?.email;
-      const authorName = authorEmail ? authorEmail.split('@')[0] : 'Someone';
+      const authorName = memberDisplayName(members.find(m => m.uid === event.lastModifiedBy));
       const categoryLabel = CATEGORY_STYLES[event.category]?.label ?? 'event';
       const dateLabel = format(new Date(event.date), 'MMM d');
 

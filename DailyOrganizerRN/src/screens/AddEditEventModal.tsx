@@ -6,6 +6,7 @@ import { EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defau
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
 import { useFamily } from '../utils/FamilyContext';
+import { memberDisplayName } from '../utils/memberColor';
 import { CloudEvent, upsertCloudEvent, deleteCloudEvent } from '../services/cloudEventService';
 import { scheduleReminder, cancelReminder } from '../services/notificationService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
@@ -381,7 +382,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
             <Pressable style={styles.scopeButton} onPress={() => setAssignDropdownOpen(!assignDropdownOpen)}>
               <Ionicons name="person-circle-outline" size={16} color={colors.accent} />
               <Text style={styles.scopeButtonText} numberOfLines={1}>
-                {assignedTo ? (members.find(m => m.uid === assignedTo)?.email ?? 'Unassigned') : 'Unassigned'}
+                {assignedTo ? memberDisplayName(members.find(m => m.uid === assignedTo)) : 'Unassigned'}
               </Text>
               <Ionicons name={assignDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
             </Pressable>
@@ -400,7 +401,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
                     style={[styles.scopeDropdownRow, styles.scopeDropdownDivider, assignedTo === m.uid && styles.scopeDropdownRowSelected]}
                     onPress={() => { setAssignedTo(m.uid); setAssignDropdownOpen(false); }}
                   >
-                    <Text style={styles.scopeDropdownText} numberOfLines={1}>{m.email}{m.uid === user?.uid ? ' (you)' : ''}</Text>
+                    <Text style={styles.scopeDropdownText} numberOfLines={1}>{memberDisplayName(m)}{m.uid === user?.uid ? ' (you)' : ''}</Text>
                   </Pressable>
                 ))}
               </View>

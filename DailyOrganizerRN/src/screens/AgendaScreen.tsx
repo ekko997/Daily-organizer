@@ -7,7 +7,7 @@ import { occurrencesInRange } from '../services/recurrenceEngine';
 import { CATEGORY_STYLES } from '../models/Event';
 import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
-import { colorForMember } from '../utils/memberColor';
+import { colorForMember, memberDisplayName } from '../utils/memberColor';
 import { useFamily } from '../utils/FamilyContext';
 import AddEditEventModal from './AddEditEventModal';
 import ScreenTransition from '../components/ScreenTransition';
@@ -27,8 +27,7 @@ export default function AgendaScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   function memberName(uid: string): string {
-    const m = members.find(x => x.uid === uid);
-    return m ? m.email.split('@')[0] : 'Someone';
+    return memberDisplayName(members.find(x => x.uid === uid));
   }
 
   function openLocation(location: string) {

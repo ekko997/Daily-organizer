@@ -12,6 +12,7 @@ export interface FamilyDoc {
 export interface MemberProfile {
   uid: string;
   email: string;
+  displayName?: string;
 }
 
 // Excludes visually ambiguous characters (0/O, 1/I) so codes are easy to read aloud or type.
@@ -63,11 +64,18 @@ export async function leaveFamily(familyId: string, uid: string): Promise<void> 
   await setDoc(doc(db, 'users', uid), { familyId: null }, { merge: true });
 }
 
-/** Looks up email addresses for a list of member uids, for display in the member list. */
+/** Looks up email + display name for a list of member uids, for display
+ * in the member list and anywhere a family member's name is shown. */
 export async function getMemberProfiles(uids: string[]): Promise<MemberProfile[]> {
   if (uids.length === 0) return [];
   // Firestore 'in' queries cap at 30 values, which comfortably covers a family.
   const q = query(collection(db, 'users'), where(documentId(), 'in', uids.slice(0, 30)));
   const snap = await getDocsCollection(q);
-  return snap.docs.map(d => ({ uid: d.id, email: d.data().email || 'Unknown' }));
+  return snap.docs.map(d => ({ uid: d.id, email: d.data().email || 'Unknown', displayName: d.data().displayName || undefined }));
+}
+
+/** Sets the display name shown for this person across the app (calendar,
+ * member lists, activity notifications) instead of their email address. */
+export async function setDisplayName(uid: string, displayName: string): Promise<void> {
+  await setDoc(doc(db, 'users', uid), { displayName: displayName.trim() }, { merge: true });
 }

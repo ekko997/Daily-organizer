@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, FlatList, SafeAreaView, Linking, ActivityIndicator, RefreshControl, ScrollView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, addMonths, addWeeks, isSameMonth, endOfDay, startOfWeek, addDays } from 'date-fns';
+import { format, addMonths, addWeeks, addYears, isSameMonth, endOfDay, startOfWeek, startOfMonth, endOfMonth, addDays, setMonth } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEvents } from '../utils/EventsContext';
 import { gridDates, isSameDay, dayStart, isoDateKey } from '../utils/dateUtils';
@@ -12,7 +12,7 @@ import { CATEGORY_STYLES } from '../models/Event';
 import { spacing, radii, typography, cardShadow, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { useFamily } from '../utils/FamilyContext';
-import { colorForMember } from '../utils/memberColor';
+import { colorForMember, memberDisplayName } from '../utils/memberColor';
 import { withOccurrenceOverride } from '../utils/dateMath';
 import { haptics } from '../utils/haptics';
 import AddEditEventModal from './AddEditEventModal';
@@ -20,8 +20,9 @@ import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
 
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-type ViewMode = 'month' | 'week' | 'day';
+type ViewMode = 'year' | 'month' | 'week' | 'day';
 
 // Hour range shown in Day view — full 24h isn't usually necessary and just
 // adds scrolling; this range covers the vast majority of real schedules.
@@ -35,6 +36,7 @@ export default function CalendarScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [displayedMonth, setDisplayedMonth] = useState(new Date());
+  const [displayedYear, setDisplayedYear] = useState(new Date().getFullYear());
   const [displayedWeekStart, setDisplayedWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [holidays, setHolidays] = useState<Map<string, PublicHoliday>>(new Map());
@@ -45,17 +47,44 @@ export default function CalendarScreen() {
   const [loadingExtras, setLoadingExtras] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Remember the last Month/Week choice between app sessions.
+  // Drives the fluid "zoom" feel when switching between Year/Month/Week/Day —
+  // content scales + fades out, the new mode swaps in, then scales + fades
+  // to rest. A real continuous pinch gesture would need react-native-gesture-handler
+  // + react-native-reanimated (not currently in this project) for jank-free
+  // 60fps tracking — this tap-triggered version gets the same "zoom" feeling
+  // without that added dependency risk.
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+  const contentScale = useRef(new Animated.Value(1)).current;
+
+  // Remember the last view choice between app sessions.
   useEffect(() => {
     AsyncStorage.getItem('calendar_view_mode_v1').then(saved => {
-      if (saved === 'month' || saved === 'week' || saved === 'day') setViewMode(saved);
+      if (saved === 'month' || saved === 'week' || saved === 'day' || saved === 'year') setViewMode(saved);
     });
   }, []);
 
   function changeViewMode(next: ViewMode) {
-    setViewMode(next);
-    AsyncStorage.setItem('calendar_view_mode_v1', next);
-    if (next === 'week') setDisplayedWeekStart(startOfWeek(selectedDate, { weekStartsOn: 1 }));
+    if (next === viewMode) return;
+    haptics.light();
+    const goingToYear = next === 'year';
+    const leavingYear = viewMode === 'year';
+    const outScale = goingToYear ? 0.9 : leavingYear ? 1.1 : 1;
+    const inStartScale = goingToYear ? 1.1 : leavingYear ? 0.9 : 1;
+
+    Animated.parallel([
+      Animated.timing(contentOpacity, { toValue: 0, duration: 140, useNativeDriver: true }),
+      Animated.timing(contentScale, { toValue: outScale, duration: 140, useNativeDriver: true }),
+    ]).start(() => {
+      setViewMode(next);
+      AsyncStorage.setItem('calendar_view_mode_v1', next);
+      if (next === 'week') setDisplayedWeekStart(startOfWeek(selectedDate, { weekStartsOn: 1 }));
+      if (next === 'year') setDisplayedYear(displayedMonth.getFullYear());
+      contentScale.setValue(inStartScale);
+      Animated.parallel([
+        Animated.timing(contentOpacity, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.timing(contentScale, { toValue: 1, duration: 280, useNativeDriver: true }),
+      ]).start();
+    });
   }
 
   function jumpToToday() {
@@ -123,8 +152,7 @@ export default function CalendarScreen() {
   const selectedHoliday = holidays.get(isoDateKey(selectedDate));
 
   function memberName(uid: string): string {
-    const m = members.find(x => x.uid === uid);
-    return m ? m.email.split('@')[0] : 'Someone';
+    return memberDisplayName(members.find(x => x.uid === uid));
   }
 
   function openLocation(location: string) {
@@ -143,19 +171,29 @@ export default function CalendarScreen() {
         <View>
           <Text style={styles.eyebrow}>SET UP APPOINTMENTS</Text>
           <Text style={styles.monthLabel}>
-            {viewMode === 'month' ? format(displayedMonth, 'MMMM yyyy') : `${format(displayedWeekStart, 'MMM d')} – ${format(addDays(displayedWeekStart, 6), 'MMM d')}`}
+            {viewMode === 'year' ? String(displayedYear) :
+             viewMode === 'month' ? format(displayedMonth, 'MMMM yyyy') :
+             `${format(displayedWeekStart, 'MMM d')} – ${format(addDays(displayedWeekStart, 6), 'MMM d')}`}
           </Text>
         </View>
         <View style={styles.monthNav}>
           <Pressable
             style={styles.navButton}
-            onPress={() => viewMode === 'month' ? setDisplayedMonth(addMonths(displayedMonth, -1)) : setDisplayedWeekStart(addWeeks(displayedWeekStart, -1))}
+            onPress={() => {
+              if (viewMode === 'year') setDisplayedYear(y => y - 1);
+              else if (viewMode === 'month') setDisplayedMonth(addMonths(displayedMonth, -1));
+              else setDisplayedWeekStart(addWeeks(displayedWeekStart, -1));
+            }}
           >
             <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
           </Pressable>
           <Pressable
             style={styles.navButton}
-            onPress={() => viewMode === 'month' ? setDisplayedMonth(addMonths(displayedMonth, 1)) : setDisplayedWeekStart(addWeeks(displayedWeekStart, 1))}
+            onPress={() => {
+              if (viewMode === 'year') setDisplayedYear(y => y + 1);
+              else if (viewMode === 'month') setDisplayedMonth(addMonths(displayedMonth, 1));
+              else setDisplayedWeekStart(addWeeks(displayedWeekStart, 1));
+            }}
           >
             <Ionicons name="chevron-forward" size={18} color={colors.textPrimary} />
           </Pressable>
@@ -163,6 +201,14 @@ export default function CalendarScreen() {
       </View>
 
       <View style={styles.viewToggleRow}>
+        <Pressable
+          style={[styles.viewToggleButton, viewMode === 'year' && styles.viewToggleButtonActive]}
+          onPress={() => changeViewMode('year')}
+          accessibilityLabel="Year view"
+          accessibilityRole="button"
+        >
+          <Text style={[styles.viewToggleText, viewMode === 'year' && styles.viewToggleTextActive]} maxFontSizeMultiplier={1.3}>Year</Text>
+        </Pressable>
         <Pressable
           style={[styles.viewToggleButton, viewMode === 'month' && styles.viewToggleButtonActive]}
           onPress={() => changeViewMode('month')}
@@ -192,6 +238,49 @@ export default function CalendarScreen() {
         </Pressable>
         {loadingExtras && <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginLeft: spacing.sm }} />}
       </View>
+
+      <Animated.View style={{ opacity: contentOpacity, transform: [{ scale: contentScale }] }}>
+
+      {viewMode === 'year' && (
+        <View style={styles.yearGrid}>
+          {MONTH_LABELS.map((label, monthIndex) => {
+            const monthDate = new Date(displayedYear, monthIndex, 1);
+            const monthStart = startOfMonth(monthDate);
+            const monthEnd = endOfMonth(monthDate);
+            const hasAnyEvent = events.some(e => e.scope === activeScope && occurrencesInRange(e, monthStart, monthEnd).length > 0);
+            const miniDates = gridDates(monthDate);
+            const isCurrentMonth = isSameMonth(monthDate, new Date());
+
+            return (
+              <Pressable
+                key={label}
+                style={styles.miniMonthCard}
+                onPress={() => { setDisplayedMonth(monthDate); changeViewMode('month'); }}
+              >
+                <View style={styles.miniMonthHeaderRow}>
+                  <Text style={[styles.miniMonthLabel, isCurrentMonth && { color: colors.accent }]}>{label}</Text>
+                  {hasAnyEvent && <View style={styles.miniMonthDot} />}
+                </View>
+                <View style={styles.miniGrid}>
+                  {miniDates.map((date, i) => {
+                    const inMonth = isSameMonth(date, monthDate);
+                    const today = isSameDay(date, new Date());
+                    return (
+                      <View key={i} style={styles.miniDayCell}>
+                        {inMonth && (
+                          <Text style={[styles.miniDayText, today && { color: colors.accent, fontWeight: '800' }]}>
+                            {format(date, 'd')}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
 
       {viewMode === 'day' && (
         <View style={styles.dayNavRow}>
@@ -324,6 +413,8 @@ export default function CalendarScreen() {
           })}
         </ScrollView>
       )}
+
+      </Animated.View>
 
       {family ? (
         <View style={styles.scopeSelectorWrapper}>
@@ -480,6 +571,14 @@ function makeStyles(colors: ThemeColors) {
     dayTextHoliday: { color: colors.holiday, fontWeight: '600' },
     dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.accent, marginTop: 3 },
     weekStrip: { flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.lg, gap: 4 },
+    yearGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.md, paddingTop: spacing.md, gap: spacing.sm },
+    miniMonthCard: { width: '31%', backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.sm, ...cardShadow },
+    miniMonthHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+    miniMonthLabel: { fontSize: 12, fontWeight: '700', color: colors.textPrimary },
+    miniMonthDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.accent },
+    miniGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    miniDayCell: { width: `${100 / 7}%`, alignItems: 'center', paddingVertical: 1 },
+    miniDayText: { fontSize: 8, color: colors.textSecondary },
     dayNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginTop: spacing.md },
     dayNavLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     hourGrid: { paddingHorizontal: spacing.xl, marginTop: spacing.md, maxHeight: 380 },

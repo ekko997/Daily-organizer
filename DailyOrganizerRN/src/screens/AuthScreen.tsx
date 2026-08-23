@@ -15,6 +15,7 @@ export default function AuthScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,12 +29,16 @@ export default function AuthScreen() {
       setError('Enter an email and password.');
       return;
     }
+    if (mode === 'signup' && !name.trim()) {
+      setError('Enter your name.');
+      return;
+    }
     setLoading(true);
     try {
       if (mode === 'signin') {
         await signIn(email.trim(), password);
       } else {
-        await signUp(email.trim(), password);
+        await signUp(email.trim(), password, name.trim());
       }
     } catch (e: any) {
       setError(friendlyError(e?.code));
@@ -65,6 +70,17 @@ export default function AuthScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>Daily Organizer</Text>
           <Text style={styles.subtitle}>{mode === 'signin' ? 'Sign in to continue' : 'Create your account'}</Text>
+
+          {mode === 'signup' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Your name"
+              placeholderTextColor={colors.textSecondary}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          )}
 
           <TextInput
             style={styles.input}

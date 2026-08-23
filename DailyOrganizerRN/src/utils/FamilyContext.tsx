@@ -19,6 +19,7 @@ interface FamilyContextValue {
   members: MemberProfile[];
   loading: boolean;
   loadError: string | null;
+  retryLoad: () => void;
   createFamily: (name: string) => Promise<void>;
   joinFamily: (code: string) => Promise<boolean>;
   renameFamily: (name: string) => Promise<void>;
@@ -31,6 +32,7 @@ const FamilyContext = createContext<FamilyContextValue>({
   members: [],
   loading: true,
   loadError: null,
+  retryLoad: () => {},
   createFamily: async () => {},
   joinFamily: async () => false,
   renameFamily: async () => {},
@@ -45,6 +47,11 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCounter, setRetryCounter] = useState(0);
+
+  function retryLoad() {
+    setRetryCounter(c => c + 1);
+  }
 
   useEffect(() => {
     if (!user) {
@@ -56,6 +63,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setLoadError(null);
     let settled = false;
+    let cancelled = false;
 
     // Firestore can occasionally hang with no error and no result on some
     // networks — this guarantees the screen never gets stuck indefinitely.
@@ -67,24 +75,38 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       }
     }, 10000);
 
-    getUserFamilyId(user.uid)
-      .then(id => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        setFamilyId(id);
-        if (!id) setLoading(false);
-      })
-      .catch(err => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        setLoadError(err?.message ?? 'Failed to load account data.');
-        setLoading(false);
-      });
+    function attempt(isRetry: boolean) {
+      getUserFamilyId(user!.uid)
+        .then(id => {
+          if (settled || cancelled) return;
+          settled = true;
+          clearTimeout(timeout);
+          setFamilyId(id);
+          if (!id) setLoading(false);
+        })
+        .catch(err => {
+          if (settled || cancelled) return;
+          // A cold app start can hit a transient network hiccup on the very
+          // first Firestore call — one silent retry clears most of these
+          // without the person ever seeing an error for something that
+          // resolves itself half a second later.
+          if (!isRetry) {
+            setTimeout(() => { if (!settled && !cancelled) attempt(true); }, 1200);
+            return;
+          }
+          settled = true;
+          clearTimeout(timeout);
+          setLoadError(err?.message ?? 'Failed to load account data.');
+          setLoading(false);
+        });
+    }
+    attempt(false);
 
-    return () => clearTimeout(timeout);
-  }, [user?.uid]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [user?.uid, retryCounter]);
 
   useEffect(() => {
     if (!familyId) {
@@ -150,7 +172,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   }, [familyId, user]);
 
   return (
-    <FamilyContext.Provider value={{ family, members, loading, loadError, createFamily, joinFamily, renameFamily, removeMember, leaveFamily }}>
+    <FamilyContext.Provider value={{ family, members, loading, loadError, retryLoad, createFamily, joinFamily, renameFamily, removeMember, leaveFamily }}>
       {children}
     </FamilyContext.Provider>
   );

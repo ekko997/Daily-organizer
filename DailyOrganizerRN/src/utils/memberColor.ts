@@ -19,3 +19,11 @@ export function colorForMember(uid: string): string {
   const index = Math.abs(hash) % MEMBER_PALETTE.length;
   return MEMBER_PALETTE[index];
 }
+
+/** The name to show for a family member — their chosen display name if
+ * they've set one, falling back to the part of their email before the @
+ * for accounts that haven't set a name yet. */
+export function memberDisplayName(profile?: { email: string; displayName?: string } | null): string {
+  if (!profile) return 'Someone';
+  return profile.displayName?.trim() || profile.email.split('@')[0];
+}

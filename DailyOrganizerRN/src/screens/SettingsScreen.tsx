@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable,
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '../services/firebase';
+import { setDisplayName as setMemberDisplayName, getMemberProfiles } from '../services/familyService';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -37,7 +40,7 @@ const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events, restrictToOwnEvents, setRestrictToOwnEvents } = useEvents();
   const { user, signOut, deleteAccount } = useAuth();
-  const { family, members, renameFamily, removeMember, leaveFamily } = useFamily();
+  const { family, members, renameFamily, removeMember, leaveFamily, loadError, retryLoad } = useFamily();
   const { pendingInviteCode, clearPendingInviteCode } = usePendingInvite();
   const { colors, mode, preference, setPreference } = useTheme();
   const { showToast } = useToast();
@@ -62,6 +65,41 @@ export default function SettingsScreen() {
   const [quietHoursStart, setQuietHoursStart] = useState(22);
   const [quietHoursEnd, setQuietHoursEnd] = useState(7);
   const [holidayListVisible, setHolidayListVisible] = useState(false);
+  const [savedDisplayName, setSavedDisplayName] = useState('');
+  const [displayNameDraft, setDisplayNameDraft] = useState('');
+
+  // Fetched independently of the family member list, so this works even
+  // for solo users who haven't joined a family yet.
+  useEffect(() => {
+    if (!user) return;
+    getMemberProfiles([user.uid]).then(profiles => {
+      const current = profiles[0]?.displayName || '';
+      setSavedDisplayName(current);
+      setDisplayNameDraft(current);
+    }).catch(() => {});
+  }, [user?.uid]);
+
+  async function handleSaveDisplayName() {
+    if (!user || !displayNameDraft.trim()) return;
+    try {
+      await setMemberDisplayName(user.uid, displayNameDraft.trim());
+      setSavedDisplayName(displayNameDraft.trim());
+      haptics.light();
+      showToast({ message: 'Name updated' });
+    } catch (err: any) {
+      showToast({ message: `Couldn't save: ${err?.message || 'unknown error'}` });
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!user?.email) return;
+    try {
+      await sendPasswordResetEmail(auth, user.email);
+      showToast({ message: `Password reset link sent to ${user.email}`, duration: 4000 });
+    } catch (err: any) {
+      showToast({ message: `Couldn't send reset email: ${err?.message || 'unknown error'}` });
+    }
+  }
   const [whatsNewVisible, setWhatsNewVisible] = useState(false);
 
   function formatHour(hour: number): string {
@@ -394,7 +432,7 @@ export default function SettingsScreen() {
                 <View key={m.uid} style={styles.memberRow}>
                   <Ionicons name="person-circle-outline" size={18} color={colors.textSecondary} />
                   <Text style={styles.memberEmail} numberOfLines={1}>
-                    {m.email}{m.uid === user?.uid ? ' (you)' : ''}{m.uid === family?.createdBy ? ' · Creator' : ''}
+                    {memberDisplayName(m)}{m.uid === user?.uid ? ' (you)' : ''}{m.uid === family?.createdBy ? ' · Creator' : ''}
                   </Text>
                   {family?.createdBy === user?.uid && m.uid !== user?.uid && (
                     <Pressable onPress={() => handleRemoveMember(m.uid, m.email)}>
@@ -411,16 +449,71 @@ export default function SettingsScreen() {
           </>
         ) : (
           <View style={styles.familyCard}>
-            <Text style={styles.helperText}>
-              You're using Daily Organizer solo right now. Set up family sharing anytime to add a shared calendar
-              you and others can see and edit together.
-            </Text>
-            <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
-              <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
-              <Text style={styles.dataButtonText}>Set up family sharing</Text>
-            </Pressable>
+            {loadError ? (
+              <>
+                <View style={styles.lockRow}>
+                  <Ionicons name="warning-outline" size={18} color={colors.holiday} />
+                  <Text style={[styles.helperText, { flex: 1, color: colors.holiday }]}>
+                    Couldn't check your family status: {loadError}
+                  </Text>
+                </View>
+                <Pressable style={styles.dataButton} onPress={() => { haptics.light(); retryLoad(); }}>
+                  <Ionicons name="refresh-outline" size={16} color={colors.textPrimary} />
+                  <Text style={styles.dataButtonText}>Try again</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.helperText}>
+                  You're using Daily Organizer solo right now. Set up family sharing anytime to add a shared calendar
+                  you and others can see and edit together.
+                </Text>
+                <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
+                  <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
+                  <Text style={styles.dataButtonText}>Set up family sharing</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         )}
+
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Account</Text>
+        <View style={styles.familyCard}>
+          <Text style={styles.lockTitle}>Your name</Text>
+          <Text style={styles.helperText}>Shown to family members instead of your email.</Text>
+          <View style={styles.clearableInputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginTop: spacing.sm, marginBottom: 0 }]}
+              placeholder="Your name"
+              placeholderTextColor={colors.textSecondary}
+              value={displayNameDraft}
+              onChangeText={setDisplayNameDraft}
+              autoCapitalize="words"
+            />
+          </View>
+          {displayNameDraft.trim() !== savedDisplayName && (
+            <Pressable style={{ marginTop: spacing.sm }} onPress={handleSaveDisplayName}>
+              <Text style={styles.saveLink}>Save name</Text>
+            </Pressable>
+          )}
+
+          <View style={[styles.lockRow, { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.lockTitle}>Email</Text>
+              <Text style={styles.helperText}>{user?.email}</Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.dataButton, { marginTop: spacing.md }, pressed && { opacity: 0.6 }]}
+            onPress={handleChangePassword}
+            accessibilityLabel="Change password"
+            accessibilityRole="button"
+          >
+            <Ionicons name="key-outline" size={16} color={colors.textPrimary} />
+            <Text style={styles.dataButtonText}>Change password</Text>
+          </Pressable>
+        </View>
 
         <Pressable style={styles.signOutButton} onPress={signOut}>
           <Text style={styles.signOutText}>Sign out{user?.email ? ` (${user.email})` : ''}</Text>

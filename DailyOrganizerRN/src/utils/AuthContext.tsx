@@ -14,7 +14,7 @@ interface AuthContextValue {
   user: User | null;
   initializing: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -50,8 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
-  async function signUp(email: string, password: string) {
-    await createUserWithEmailAndPassword(auth, email, password);
+  async function signUp(email: string, password: string, displayName: string) {
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, 'users', credential.user.uid), { email, displayName }, { merge: true });
   }
 
   async function signOut() {
