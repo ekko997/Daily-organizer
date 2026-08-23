@@ -27,6 +27,7 @@ import { FamilyProvider, useFamily } from './src/utils/FamilyContext';
 import { ToastProvider, useToast } from './src/utils/ToastContext';
 import { PendingInviteContext } from './src/utils/PendingInviteContext';
 import { haptics } from './src/utils/haptics';
+import { useFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 
 const Tab = createBottomTabNavigator();
 
@@ -346,6 +347,12 @@ function RootGate() {
 }
 
 export default function App() {
+  // Kicks off loading the Manrope display font in the background. No need
+  // to gate rendering on this — React Native silently falls back to the
+  // system font for any Text using 'Manrope_...' until it's registered,
+  // then picks it up automatically on the next re-render once ready.
+  useFonts({ Manrope_700Bold, Manrope_800ExtraBold });
+
   return (
     <ThemeProvider>
       <ToastProvider>

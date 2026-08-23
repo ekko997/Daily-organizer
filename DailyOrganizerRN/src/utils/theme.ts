@@ -33,10 +33,10 @@ export const cardShadowDark = {
 };
 
 export const typography = {
-  greeting: { fontSize: 15, fontWeight: '500' as const },
-  screenTitle: { fontSize: 26, fontWeight: '700' as const },
-  sectionHeader: { fontSize: 16, fontWeight: '600' as const },
-  cardTitle: { fontSize: 18, fontWeight: '600' as const },
+  greeting: { fontSize: 15, fontWeight: '600' as const, fontFamily: 'Manrope_700Bold' },
+  screenTitle: { fontSize: 26, fontWeight: '800' as const, fontFamily: 'Manrope_800ExtraBold' },
+  sectionHeader: { fontSize: 16, fontWeight: '700' as const, fontFamily: 'Manrope_700Bold' },
+  cardTitle: { fontSize: 18, fontWeight: '700' as const, fontFamily: 'Manrope_700Bold' },
   body: { fontSize: 14, fontWeight: '500' as const },
   caption: { fontSize: 12, fontWeight: '400' as const },
   label: { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.5 },
@@ -44,36 +44,39 @@ export const typography = {
 
 export type ThemeMode = 'light' | 'dark';
 
+// Warm, grounded palette — pine and linen instead of the generic
+// indigo-on-white/near-black look most calendar apps default to.
+// "surfaceDark" is the emphasis/selected-state color (Next Up card,
+// selected calendar day, active toggle) — it's genuinely the pine accent
+// in light mode, and a lighter sage in dark mode so it still reads as
+// "emphasis" against a dark background.
 const lightColors = {
-  background: '#FFFFFF',
-  surface: '#F5F5F7',
-  // "emphasis" surface used for selected states / callout cards — inverts in dark mode
-  surfaceDark: '#111113',
-  border: '#EDEDEF',
-  textPrimary: '#111113',
-  textSecondary: '#8C8C90',
-  // text that sits on top of surfaceDark — inverts alongside it
+  background: '#FAF8F4',
+  surface: '#F0EBE2',
+  surfaceDark: '#3D6355',
+  border: '#E5DFD3',
+  textPrimary: '#211F1B',
+  textSecondary: '#8A8378',
   textOnDark: '#FFFFFF',
-  textOnDarkMuted: '#D9D9DE',
-  accent: '#5973E6',
-  holiday: '#D9435C',
-  holidayBg: 'rgba(217,67,92,0.12)',
-  // constant white — for text/icons on vividly-colored buttons/badges that don't flip with theme
+  textOnDarkMuted: '#CFE0D7',
+  accent: '#3D6355',
+  holiday: '#B14A38',
+  holidayBg: 'rgba(177,74,56,0.12)',
   white: '#FFFFFF',
 };
 
 const darkColors = {
-  background: '#0B0B0D',
-  surface: '#1C1C1F',
-  surfaceDark: '#F2F2F3',
-  border: '#2C2C30',
-  textPrimary: '#F2F2F3',
-  textSecondary: '#9A9A9E',
-  textOnDark: '#111113',
-  textOnDarkMuted: '#4A4A4D',
-  accent: '#7B93F0',
-  holiday: '#FF6B82',
-  holidayBg: 'rgba(255,107,130,0.16)',
+  background: '#17151A',
+  surface: '#211E24',
+  surfaceDark: '#8FBBA3',
+  border: '#2E2A33',
+  textPrimary: '#F2EFEA',
+  textSecondary: '#9C948A',
+  textOnDark: '#17151A',
+  textOnDarkMuted: '#3E4A44',
+  accent: '#7FB39A',
+  holiday: '#E1795F',
+  holidayBg: 'rgba(225,121,95,0.16)',
   white: '#FFFFFF',
 };
 
