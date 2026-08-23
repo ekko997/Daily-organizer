@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TextInput, Pressable, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -14,6 +14,34 @@ import { capitalizeFirst } from '../utils/textUtils';
 import SwipeableRow from '../components/SwipeableRow';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
+
+function TodoRow({ todo, onToggle, colors, styles }: { todo: TodoItem; onToggle: () => void; colors: ThemeColors; styles: any }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function handlePress() {
+    Animated.sequence([
+      Animated.timing(scale, { toValue: 0.9, duration: 80, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
+    ]).start();
+    onToggle();
+  }
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.todoRow, { borderLeftColor: todo.done ? colors.border : colors.accent }, pressed && { opacity: 0.6 }]}
+      onPress={handlePress}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons
+          name={todo.done ? 'checkmark-circle' : 'ellipse-outline'}
+          size={24}
+          color={todo.done ? colors.accent : colors.textSecondary}
+        />
+      </Animated.View>
+      <Text style={[styles.todoText, todo.done && styles.todoTextDone]}>{todo.text}</Text>
+    </Pressable>
+  );
+}
 
 export default function TodoScreen() {
   const { activeScope, setActiveScope } = useEvents();
@@ -103,6 +131,18 @@ export default function TodoScreen() {
           )}
         </View>
 
+        {visibleTodos.length > 0 && (
+          <View style={styles.progressCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.progressNumber}>{visibleTodos.filter(t => t.done).length} / {visibleTodos.length}</Text>
+              <Text style={styles.progressLabel}>done</Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${(visibleTodos.filter(t => t.done).length / visibleTodos.length) * 100}%` }]} />
+            </View>
+          </View>
+        )}
+
         {family ? (
           <View style={styles.scopeWrapper}>
             <Pressable style={styles.scopeButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
@@ -178,14 +218,7 @@ export default function TodoScreen() {
           ) : (
             visibleTodos.map(todo => (
               <SwipeableRow key={todo.id} onDelete={() => handleDelete(todo)} style={{ marginBottom: spacing.sm }}>
-                <Pressable style={({ pressed }) => [styles.todoRow, pressed && { opacity: 0.6 }]} onPress={() => handleToggle(todo)}>
-                  <Ionicons
-                    name={todo.done ? 'checkbox' : 'square-outline'}
-                    size={22}
-                    color={todo.done ? colors.accent : colors.textSecondary}
-                  />
-                  <Text style={[styles.todoText, todo.done && styles.todoTextDone]}>{todo.text}</Text>
-                </Pressable>
+                <TodoRow todo={todo} onToggle={() => handleToggle(todo)} colors={colors} styles={styles} />
               </SwipeableRow>
             ))
           )}
@@ -202,6 +235,17 @@ function makeStyles(colors: ThemeColors) {
     header: { ...typography.screenTitle, paddingHorizontal: spacing.xl, paddingTop: spacing.md, color: colors.textPrimary },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: spacing.xl },
     clearCompletedText: { fontSize: 12, fontWeight: '600', color: colors.accent },
+    progressCard: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.lg,
+      backgroundColor: colors.surfaceDark, borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg, paddingVertical: spacing.lg,
+      marginHorizontal: spacing.xl, marginTop: spacing.md,
+      ...cardShadow,
+    },
+    progressNumber: { fontSize: 22, fontWeight: '800', fontFamily: 'Manrope_800ExtraBold', color: colors.textOnDark },
+    progressLabel: { fontSize: 12, color: colors.textOnDarkMuted, marginTop: 2 },
+    progressTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: 4, backgroundColor: colors.textOnDark },
     scopeWrapper: { position: 'relative', zIndex: 20, paddingHorizontal: spacing.xl, marginTop: spacing.md },
     scopeButton: {
       flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
@@ -229,7 +273,7 @@ function makeStyles(colors: ThemeColors) {
       marginHorizontal: spacing.xl, marginBottom: spacing.md,
     },
     searchInput: { flex: 1, fontSize: 14, color: colors.textPrimary },
-    todoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, ...cardShadow },
+    todoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.surface, borderRadius: radii.sm, borderLeftWidth: 3, padding: spacing.md, ...cardShadow },
     todoText: { flex: 1, fontSize: 14, color: colors.textPrimary },
     todoTextDone: { textDecorationLine: 'line-through', color: colors.textSecondary },
     emptyState: { alignItems: 'center', paddingVertical: spacing.xxl, gap: spacing.sm },
