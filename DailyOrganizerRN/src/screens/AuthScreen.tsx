@@ -22,6 +22,7 @@ export default function AuthScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   async function handleSubmit() {
     setError('');
@@ -73,31 +74,37 @@ export default function AuthScreen() {
 
           {mode === 'signup' && (
             <TextInput
-              style={styles.input}
+              style={[styles.input, focusedField === 'name' && styles.inputFocused]}
               placeholder="Your name"
               placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={setName}
+              onFocus={() => setFocusedField('name')}
+              onBlur={() => setFocusedField(null)}
               autoCapitalize="words"
             />
           )}
 
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'email' && styles.inputFocused]}
             placeholder="Email"
             placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
+            onFocus={() => setFocusedField('email')}
+            onBlur={() => setFocusedField(null)}
             autoCapitalize="none"
             keyboardType="email-address"
           />
           <View style={styles.passwordRow}>
             <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              style={[styles.input, { flex: 1, marginBottom: 0 }, focusedField === 'password' && styles.inputFocused]}
               placeholder="Password"
               placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={setPassword}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
             />
@@ -153,7 +160,8 @@ function makeStyles(colors: ThemeColors) {
     content: { flex: 1, justifyContent: 'center', padding: spacing.xl },
     title: { ...typography.screenTitle, color: colors.textPrimary, textAlign: 'center' },
     subtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 4, marginBottom: spacing.xxl },
-    input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary },
+    input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border },
+    inputFocused: { borderColor: colors.accent, borderWidth: 1.5 },
     passwordRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
     eyeButton: { padding: spacing.sm },
     error: { color: colors.holiday, fontSize: 13, marginBottom: spacing.md, textAlign: 'center' },

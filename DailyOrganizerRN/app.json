@@ -10,21 +10,18 @@
     "splash": {
       "image": "./assets/icon-1024.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0B0B0D"
+      "backgroundColor": "#3D6355"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.yourcompany.dailyorganizer",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "plugins": [
       "expo-notifications",
-      "expo-localization",
-      "expo-font"
+      "expo-localization"
     ],
     "extra": {
       "eas": {

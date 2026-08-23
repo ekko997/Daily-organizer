@@ -14,6 +14,7 @@ import { capitalizeFirst } from '../utils/textUtils';
 import SwipeableRow from '../components/SwipeableRow';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
+import CelebrationBurst from '../components/CelebrationBurst';
 
 function TodoRow({ todo, onToggle, colors, styles }: { todo: TodoItem; onToggle: () => void; colors: ThemeColors; styles: any }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -56,6 +57,8 @@ export default function TodoScreen() {
   const [scopeDropdownOpen, setScopeDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [celebrationTrigger, setCelebrationTrigger] = useState(0);
+  const wasAllDone = useRef(false);
 
   const onRefresh = useCallback(() => {
     haptics.light();
@@ -73,6 +76,18 @@ export default function TodoScreen() {
     .filter(t => t.scope === activeScope)
     .filter(t => !searchQuery.trim() || t.text.toLowerCase().includes(searchQuery.trim().toLowerCase()))
     .sort((a, b) => Number(a.done) - Number(b.done) || a.createdAt.localeCompare(b.createdAt));
+
+  // Celebrates the exact moment the list goes from "not quite done" to
+  // "fully done" — not on every render while it stays done, and not on
+  // load if it happens to already be complete.
+  useEffect(() => {
+    const allDone = visibleTodos.length > 0 && visibleTodos.every(t => t.done);
+    if (allDone && !wasAllDone.current) {
+      haptics.success();
+      setCelebrationTrigger(t => t + 1);
+    }
+    wasAllDone.current = allDone;
+  }, [visibleTodos]);
 
   async function handleAdd() {
     if (!newText.trim() || !user) return;
@@ -131,17 +146,27 @@ export default function TodoScreen() {
           )}
         </View>
 
-        {visibleTodos.length > 0 && (
-          <View style={styles.progressCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.progressNumber}>{visibleTodos.filter(t => t.done).length} / {visibleTodos.length}</Text>
-              <Text style={styles.progressLabel}>done</Text>
+        {visibleTodos.length > 0 && (() => {
+          const doneCount = visibleTodos.filter(t => t.done).length;
+          const allDone = doneCount === visibleTodos.length;
+          return (
+            <View style={[styles.progressCard, allDone && styles.progressCardComplete]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.progressNumber}>{allDone ? 'All done!' : `${doneCount} / ${visibleTodos.length}`}</Text>
+                <Text style={styles.progressLabel}>{allDone ? 'Nice work today' : 'done'}</Text>
+              </View>
+              {allDone ? (
+                <Ionicons name="sparkles" size={28} color={colors.textOnDark} />
+              ) : (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${(doneCount / visibleTodos.length) * 100}%` }]} />
+                </View>
+              )}
             </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${(visibleTodos.filter(t => t.done).length / visibleTodos.length) * 100}%` }]} />
-            </View>
-          </View>
-        )}
+          );
+        })()}
+
+        <CelebrationBurst trigger={celebrationTrigger} />
 
         {family ? (
           <View style={styles.scopeWrapper}>
@@ -242,6 +267,7 @@ function makeStyles(colors: ThemeColors) {
       marginHorizontal: spacing.xl, marginTop: spacing.md,
       ...cardShadow,
     },
+    progressCardComplete: { backgroundColor: colors.accent },
     progressNumber: { fontSize: 22, fontWeight: '800', fontFamily: 'Manrope_800ExtraBold', color: colors.textOnDark },
     progressLabel: { fontSize: 12, color: colors.textOnDarkMuted, marginTop: 2 },
     progressTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },

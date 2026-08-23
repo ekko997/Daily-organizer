@@ -62,6 +62,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
   const [saveChoiceOpen, setSaveChoiceOpen] = useState(false);
   const [titleError, setTitleError] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const currentScope = editingEvent?.scope ?? selectedScope;
 
@@ -425,30 +426,36 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         )}
 
         <TextInput
-          style={[styles.input, titleError && styles.inputError]}
+          style={[styles.input, focusedField === 'title' && styles.inputFocused, titleError && styles.inputError]}
           placeholder="Title"
           placeholderTextColor={colors.textSecondary}
           value={title}
           onChangeText={text => { setTitle(capitalizeFirst(text)); if (titleError) setTitleError(false); }}
+          onFocus={() => setFocusedField('title')}
+          onBlur={() => setFocusedField(null)}
         />
         {titleError && <Text style={styles.fieldErrorText}>A title is required</Text>}
 
         <TextInput
-          style={[styles.input, { height: 70 }]}
+          style={[styles.input, { height: 70 }, focusedField === 'notes' && styles.inputFocused]}
           placeholder="Notes (optional)"
           placeholderTextColor={colors.textSecondary}
           value={notes}
           onChangeText={setNotes}
+          onFocus={() => setFocusedField('notes')}
+          onBlur={() => setFocusedField(null)}
           multiline
         />
 
         <View style={styles.inlineFieldRow}>
           <TextInput
-            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            style={[styles.input, { flex: 1, marginBottom: 0 }, focusedField === 'location' && styles.inputFocused]}
             placeholder="Location (optional)"
             placeholderTextColor={colors.textSecondary}
             value={location}
             onChangeText={setLocation}
+            onFocus={() => setFocusedField('location')}
+            onBlur={() => setFocusedField(null)}
           />
           {location.trim().length > 0 && (
             <Pressable style={styles.inlineFieldButton} onPress={openLocation}>
@@ -460,11 +467,13 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         {category === 'meeting' && (
           <View style={[styles.inlineFieldRow, { marginTop: spacing.md }]}>
             <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              style={[styles.input, { flex: 1, marginBottom: 0 }, focusedField === 'meetingLink' && styles.inputFocused]}
               placeholder="Meeting link (Zoom, Teams...)"
               placeholderTextColor={colors.textSecondary}
               value={meetingLink}
               onChangeText={setMeetingLink}
+              onFocus={() => setFocusedField('meetingLink')}
+              onBlur={() => setFocusedField(null)}
               autoCapitalize="none"
               keyboardType="url"
             />
@@ -643,6 +652,7 @@ function makeStyles(colors: ThemeColors) {
     scopeDropdownRowSelected: { backgroundColor: colors.surface },
     scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border },
+    inputFocused: { borderColor: colors.accent, borderWidth: 1.5 },
     inputError: { borderWidth: 1.5, borderColor: colors.holiday },
     fieldErrorText: { color: colors.holiday, fontSize: 12, marginTop: -spacing.sm, marginBottom: spacing.md },
     conflictBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.holidayBg, borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },

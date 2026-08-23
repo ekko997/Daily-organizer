@@ -6,6 +6,7 @@ import { View, ActivityIndicator, Text, Pressable, Animated } from 'react-native
 import * as Linking from 'expo-linking';
 import { format } from 'date-fns';
 import * as Localization from 'expo-localization';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { requestNotificationPermission, snoozeReminder } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
@@ -19,6 +20,7 @@ import AgendaScreen from './src/screens/AgendaScreen';
 import TodoScreen from './src/screens/TodoScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AuthScreen from './src/screens/AuthScreen';
+import WelcomeScreen from './src/screens/WelcomeScreen';
 import FamilySetupScreen from './src/screens/FamilySetupScreen';
 import { EventsContext } from './src/utils/EventsContext';
 import { ThemeProvider, useTheme } from './src/utils/ThemeContext';
@@ -47,7 +49,7 @@ function SkeletonBlock({ width, height, style }: { width: number | string; heigh
     return () => loop.stop();
   }, []);
 
-  return <Animated.View style={[{ width, height, borderRadius: 8, backgroundColor: colors.surface, opacity }, style]} />;
+  return <Animated.View style={[{ width, height, borderRadius: 8, backgroundColor: colors.border, opacity }, style]} />;
 }
 
 function LoadingScreen({ error, showSignOut }: { error?: string | null; showSignOut?: boolean }) {
@@ -303,6 +305,20 @@ function RootGate() {
   const [checkingLock, setCheckingLock] = useState(true);
   const [locked, setLocked] = useState(false);
   const [pendingInviteCode, setPendingInviteCode] = useState<string | undefined>(undefined);
+  const [checkingWelcome, setCheckingWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('seen_welcome_v1').then(seen => {
+      setShowWelcome(!seen);
+      setCheckingWelcome(false);
+    });
+  }, []);
+
+  function dismissWelcome() {
+    setShowWelcome(false);
+    AsyncStorage.setItem('seen_welcome_v1', 'true');
+  }
 
   // Catches taps on a shared invite link (dailyorganizer://join?code=XXXXXX)
   // and hands the code to Settings, where family setup now lives (it's no
@@ -333,7 +349,11 @@ function RootGate() {
   }, [user?.uid]);
 
   if (initializing) return <LoadingScreen />;
-  if (!user) return <AuthScreen />;
+  if (!user) {
+    if (checkingWelcome) return <LoadingScreen />;
+    if (showWelcome) return <WelcomeScreen onContinue={dismissWelcome} />;
+    return <AuthScreen />;
+  }
   if (checkingLock) return <LoadingScreen />;
   if (locked) return <AppLockScreen onUnlocked={() => setLocked(false)} />;
   if (familyLoading) return <LoadingScreen />;
