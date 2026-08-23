@@ -203,7 +203,7 @@ export default function SettingsScreen() {
     };
     try {
       await Share.share({
-        title: 'Daily Organizer data export',
+        title: 'Steady Days data export',
         message: JSON.stringify(payload, null, 2),
       });
     } catch {
@@ -212,7 +212,7 @@ export default function SettingsScreen() {
   }
 
   async function handleExportIcs() {
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Daily Organizer//EN'];
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Steady Days//EN'];
     for (const event of events) {
       const dt = new Date(event.date);
       const stamp = dt.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -231,7 +231,7 @@ export default function SettingsScreen() {
     const icsContent = lines.filter(Boolean).join('\r\n');
     try {
       await Share.share({
-        title: 'Daily Organizer calendar (.ics)',
+        title: 'Steady Days calendar (.ics)',
         message: icsContent,
       });
       showToast({ message: 'Save the shared text as a .ics file to import elsewhere', duration: 4000 });
@@ -318,7 +318,7 @@ export default function SettingsScreen() {
     if (!family) return;
     const link = `dailyorganizer://join?code=${family.inviteCode}`;
     await Share.share({
-      message: `Join our family calendar on Daily Organizer!\n\nInvite code: ${family.inviteCode}\n\nOr tap this link if you already have the app installed: ${link}`,
+      message: `Join our family calendar on Steady Days!\n\nInvite code: ${family.inviteCode}\n\nOr tap this link if you already have the app installed: ${link}`,
     });
   }
 
@@ -465,7 +465,7 @@ export default function SettingsScreen() {
             ) : (
               <>
                 <Text style={styles.helperText}>
-                  You're using Daily Organizer solo right now. Set up family sharing anytime to add a shared calendar
+                  You're using Steady Days solo right now. Set up family sharing anytime to add a shared calendar
                   you and others can see and edit together.
                 </Text>
                 <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>

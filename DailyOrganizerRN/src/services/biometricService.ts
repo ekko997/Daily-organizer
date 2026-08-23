@@ -9,7 +9,7 @@ export async function isBiometricAvailable(): Promise<boolean> {
 export async function authenticateWithBiometrics(): Promise<boolean> {
   try {
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock Daily Organizer',
+      promptMessage: 'Unlock Steady Days',
       fallbackLabel: 'Use passcode',
     });
     return result.success;

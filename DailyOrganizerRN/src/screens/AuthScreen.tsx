@@ -69,7 +69,7 @@ export default function AuthScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.content}>
-          <Text style={styles.title}>Daily Organizer</Text>
+          <Text style={styles.title}>Steady Days</Text>
           <Text style={styles.subtitle}>{mode === 'signin' ? 'Sign in to continue' : 'Create your account'}</Text>
 
           {mode === 'signup' && (

@@ -288,7 +288,7 @@ function AppLockScreen({ onUnlocked }: { onUnlocked: () => void }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 24, gap: 20 }}>
       <Ionicons name="lock-closed" size={40} color={colors.textSecondary} />
-      <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>Daily Organizer is locked</Text>
+      <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: '600' }}>Steady Days is locked</Text>
       <Pressable style={{ backgroundColor: colors.accent, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10 }} onPress={tryUnlock} disabled={attempting}>
         <Text style={{ color: colors.white, fontWeight: '700' }}>{attempting ? 'Checking...' : 'Unlock'}</Text>
       </Pressable>

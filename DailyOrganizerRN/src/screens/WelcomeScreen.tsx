@@ -20,7 +20,7 @@ export default function WelcomeScreen({ onContinue }: Props) {
           <View style={styles.horizon} />
         </View>
 
-        <Text style={styles.title}>Daily Organizer</Text>
+        <Text style={styles.title}>Steady Days</Text>
         <Text style={styles.subtitle}>
           A steady place for your family's days — appointments, to-dos, and everyone's schedule, together.
         </Text>
