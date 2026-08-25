@@ -20,12 +20,15 @@
         "dark": "./assets/icon-1024.png"
       },
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "plugins": [
       "expo-notifications",
-      "expo-localization"
+      "expo-localization",
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {

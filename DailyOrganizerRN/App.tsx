@@ -31,6 +31,8 @@ import { PendingInviteContext } from './src/utils/PendingInviteContext';
 import { haptics } from './src/utils/haptics';
 import { memberDisplayName } from './src/utils/memberColor';
 import { useFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { initErrorReporting } from './src/services/errorReporting';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 const Tab = createBottomTabNavigator();
 
@@ -373,15 +375,21 @@ export default function App() {
   // then picks it up automatically on the next re-render once ready.
   useFonts({ Manrope_700Bold, Manrope_800ExtraBold });
 
+  useEffect(() => {
+    initErrorReporting();
+  }, []);
+
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <FamilyProvider>
-            <RootGate />
-          </FamilyProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <FamilyProvider>
+              <RootGate />
+            </FamilyProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

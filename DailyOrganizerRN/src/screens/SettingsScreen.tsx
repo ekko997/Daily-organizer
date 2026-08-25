@@ -419,7 +419,7 @@ export default function SettingsScreen() {
               <View style={styles.inviteRow}>
                 <Pressable onPress={handleCopyCode} accessibilityLabel="Tap to copy invite code" accessibilityRole="button">
                   <Text style={styles.inviteLabel}>Invite code (tap to copy)</Text>
-                  <Text style={styles.inviteCode}>{family?.inviteCode}</Text>
+                  <Text style={styles.inviteCode} maxFontSizeMultiplier={1.4}>{family?.inviteCode}</Text>
                 </Pressable>
                 <Pressable style={styles.shareButton} accessibilityLabel="Share invite code" accessibilityRole="button" onPress={handleShareCode}>
                   <Ionicons name="share-outline" size={16} color={colors.white} />
@@ -587,12 +587,12 @@ export default function SettingsScreen() {
             <View style={styles.quietHoursRow}>
               <Pressable style={styles.quietHoursButton} onPress={() => cycleQuietHour('start')}>
                 <Text style={styles.quietHoursLabel}>From</Text>
-                <Text style={styles.quietHoursValue}>{formatHour(quietHoursStart)}</Text>
+                <Text style={styles.quietHoursValue} maxFontSizeMultiplier={1.3}>{formatHour(quietHoursStart)}</Text>
               </Pressable>
               <Ionicons name="arrow-forward" size={14} color={colors.textSecondary} />
               <Pressable style={styles.quietHoursButton} onPress={() => cycleQuietHour('end')}>
                 <Text style={styles.quietHoursLabel}>Until</Text>
-                <Text style={styles.quietHoursValue}>{formatHour(quietHoursEnd)}</Text>
+                <Text style={styles.quietHoursValue} maxFontSizeMultiplier={1.3}>{formatHour(quietHoursEnd)}</Text>
               </Pressable>
             </View>
           )}
@@ -603,7 +603,7 @@ export default function SettingsScreen() {
           <View style={styles.timeOffRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.lockTitle}>Vacation days</Text>
-              <Text style={styles.timeOffCount}>{Math.max(0, vacationAllowance - vacationUsed)} of {vacationAllowance} left</Text>
+              <Text style={styles.timeOffCount} maxFontSizeMultiplier={1.3}>{Math.max(0, vacationAllowance - vacationUsed)} of {vacationAllowance} left</Text>
             </View>
             <Pressable style={styles.timeOffButton} onPress={() => adjustTimeOff('vacation', -1)}>
               <Ionicons name="remove" size={16} color={colors.textPrimary} />
@@ -616,7 +616,7 @@ export default function SettingsScreen() {
           <View style={[styles.timeOffRow, { marginTop: spacing.md }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.lockTitle}>Sick days</Text>
-              <Text style={styles.timeOffCount}>{Math.max(0, sickAllowance - sickUsed)} of {sickAllowance} left</Text>
+              <Text style={styles.timeOffCount} maxFontSizeMultiplier={1.3}>{Math.max(0, sickAllowance - sickUsed)} of {sickAllowance} left</Text>
             </View>
             <Pressable style={styles.timeOffButton} onPress={() => adjustTimeOff('sick', -1)}>
               <Ionicons name="remove" size={16} color={colors.textPrimary} />

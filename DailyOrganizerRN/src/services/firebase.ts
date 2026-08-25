@@ -3,6 +3,7 @@ import { initializeAuth, getAuth, Auth } from 'firebase/auth';
 // @ts-ignore — this RN-specific persistence helper exists at runtime even if types lag behind
 import { getReactNativePersistence } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // PASTE YOUR FIREBASE CONFIG HERE — from Firebase Console → Project Settings → General → Your apps
@@ -42,3 +43,5 @@ export const db = initializeFirestore(app, {
   useFetchStreams: false,
   ignoreUndefinedProperties: true,
 });
+
+export const storage = getStorage(app);

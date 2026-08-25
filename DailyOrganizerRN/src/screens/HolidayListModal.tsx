@@ -48,7 +48,7 @@ export default function HolidayListModal({ visible, onClose, countryCode, region
               holidays.map(h => (
                 <View key={h.date + h.localName} style={styles.row}>
                   <View style={styles.dateBadge}>
-                    <Text style={styles.dateBadgeText}>{format(new Date(h.date), 'MMM d')}</Text>
+                    <Text style={styles.dateBadgeText} maxFontSizeMultiplier={1.3}>{format(new Date(h.date), 'MMM d')}</Text>
                   </View>
                   <Text style={styles.holidayName}>{h.localName}</Text>
                 </View>

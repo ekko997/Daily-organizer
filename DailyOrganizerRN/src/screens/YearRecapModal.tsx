@@ -100,7 +100,7 @@ export default function YearRecapModal({ visible, onClose, events }: Props) {
                   <View key={cat} style={styles.categoryRow}>
                     <Ionicons name={CATEGORY_STYLES[cat].icon as any} size={16} color={CATEGORY_STYLES[cat].color} />
                     <Text style={styles.categoryLabel}>{CATEGORY_STYLES[cat].label}</Text>
-                    <Text style={styles.categoryCount}>{count}</Text>
+                    <Text style={styles.categoryCount} maxFontSizeMultiplier={1.3}>{count}</Text>
                   </View>
                 ))}
             </>

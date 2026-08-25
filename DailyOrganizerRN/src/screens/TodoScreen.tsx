@@ -172,7 +172,7 @@ export default function TodoScreen() {
           <View style={styles.scopeWrapper}>
             <Pressable style={styles.scopeButton} onPress={() => setScopeDropdownOpen(!scopeDropdownOpen)}>
               <Ionicons name={activeScope === 'family' ? 'people' : 'person'} size={16} color={colors.accent} />
-              <Text style={styles.scopeButtonText}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
+              <Text style={styles.scopeButtonText} maxFontSizeMultiplier={1.3}>{activeScope === 'family' ? (family?.name || 'Family') : 'Personal'}</Text>
               <Ionicons name={scopeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
             </Pressable>
             {scopeDropdownOpen && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform, Linking, Share } from 'react-native';
+import { Modal, View, Text, TextInput, StyleSheet, Pressable, ScrollView, Switch, KeyboardAvoidingView, Platform, Linking, Share, Image, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { EventCategory, RecurrenceRule, CATEGORY_STYLES, REMINDER_OPTIONS, defaultsToYearlyRecurrence } from '../models/Event';
@@ -9,6 +10,7 @@ import { useFamily } from '../utils/FamilyContext';
 import { memberDisplayName } from '../utils/memberColor';
 import { CloudEvent, upsertCloudEvent, deleteCloudEvent } from '../services/cloudEventService';
 import { scheduleReminder, cancelReminder } from '../services/notificationService';
+import { uploadEventPhoto, deleteEventPhoto } from '../services/eventPhotoService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
 import { capitalizeFirst } from '../utils/textUtils';
@@ -62,6 +64,8 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
   const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
   const [saveChoiceOpen, setSaveChoiceOpen] = useState(false);
   const [titleError, setTitleError] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const currentScope = editingEvent?.scope ?? selectedScope;
@@ -98,6 +102,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setRecurrence(editingEvent.recurrence);
         setReminderMinutes(editingEvent.reminderMinutesBefore);
         setAssignedTo(editingEvent.assignedTo);
+        setPhotoUrl(editingEvent.photoUrl);
       } else {
         setTitle('');
         setNotes('');
@@ -112,6 +117,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
         setReminderMinutes(30);
         setSelectedScope(activeScope);
         setAssignedTo(undefined);
+        setPhotoUrl(undefined);
       }
       setScopeDropdownOpen(false);
       setAssignDropdownOpen(false);
@@ -177,6 +183,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
       excludedDates: editingEvent?.excludedDates,
       endDate: (isMultiDay && recurrence === 'none' && endDate) ? endDate.toISOString() : undefined,
       occurrenceOverrides: editingEvent?.occurrenceOverrides,
+      photoUrl,
     };
     try {
       await upsertCloudEvent(event);
@@ -239,6 +246,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
     if (!editingEvent) return;
     await cancelReminder(editingEvent.id);
     await deleteCloudEvent(editingEvent.id);
+    if (editingEvent.photoUrl) deleteEventPhoto(editingEvent.id).catch(() => {});
     haptics.warning();
     showToast({ message: 'Event series deleted' });
     onClose();
@@ -255,6 +263,39 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
     haptics.warning();
     showToast({ message: 'This occurrence removed' });
     onClose();
+  }
+
+  async function handlePickPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showToast({ message: 'Photo access is needed to attach a picture' });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.6,
+      allowsEditing: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setPhotoUploading(true);
+    try {
+      // Use a stable id even for a not-yet-saved new event, so the photo
+      // has somewhere consistent to live once the event itself is saved.
+      const idForUpload = editingEvent?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const url = await uploadEventPhoto(idForUpload, result.assets[0].uri);
+      setPhotoUrl(url);
+      haptics.light();
+    } catch (err: any) {
+      showToast({ message: `Couldn't upload photo: ${err?.message || 'unknown error'}` });
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
+  function handleRemovePhoto() {
+    setPhotoUrl(undefined);
+    if (editingEvent) deleteEventPhoto(editingEvent.id).catch(() => {});
   }
 
   async function handleDuplicate() {
@@ -464,6 +505,26 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
           )}
         </View>
 
+        {photoUrl ? (
+          <View style={styles.photoPreviewWrapper}>
+            <Image source={{ uri: photoUrl }} style={styles.photoPreview} />
+            <Pressable style={styles.photoRemoveButton} onPress={handleRemovePhoto} accessibilityLabel="Remove photo" accessibilityRole="button">
+              <Ionicons name="close" size={16} color={colors.white} />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={styles.photoAddButton} onPress={handlePickPhoto} disabled={photoUploading}>
+            {photoUploading ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <>
+                <Ionicons name="image-outline" size={18} color={colors.textSecondary} />
+                <Text style={styles.photoAddText}>Attach a photo (optional)</Text>
+              </>
+            )}
+          </Pressable>
+        )}
+
         {category === 'meeting' && (
           <View style={[styles.inlineFieldRow, { marginTop: spacing.md }]}>
             <TextInput
@@ -653,6 +714,11 @@ function makeStyles(colors: ThemeColors) {
     scopeDropdownText: { fontSize: 14, color: colors.textPrimary },
     input: { backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, fontSize: 15, marginBottom: spacing.md, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border },
     inputFocused: { borderColor: colors.accent, borderWidth: 1.5 },
+    photoAddButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', padding: spacing.md, marginBottom: spacing.md, height: 48 },
+    photoAddText: { fontSize: 13, color: colors.textSecondary },
+    photoPreviewWrapper: { position: 'relative', marginBottom: spacing.md },
+    photoPreview: { width: '100%', height: 160, borderRadius: radii.sm },
+    photoRemoveButton: { position: 'absolute', top: spacing.sm, right: spacing.sm, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 14, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
     inputError: { borderWidth: 1.5, borderColor: colors.holiday },
     fieldErrorText: { color: colors.holiday, fontSize: 12, marginTop: -spacing.sm, marginBottom: spacing.md },
     conflictBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.holidayBg, borderRadius: radii.sm, padding: spacing.sm + 2, marginBottom: spacing.md },

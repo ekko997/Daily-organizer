@@ -53,6 +53,9 @@ export interface OrganizerEvent {
     location?: string;
     meetingLink?: string;
   }>;
+  // Firebase Storage download URL for an attached photo (a flyer, invite,
+  // school note, etc.) — optional, only set when the user chooses to attach one.
+  photoUrl?: string;
   // uid of the family member this event belongs to (only meaningful for
   // scope: 'family' events) — lets a shared calendar show whose appointment it is.
   assignedTo?: string;
