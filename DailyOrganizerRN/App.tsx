@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { requestNotificationPermission, snoozeReminder } from './src/services/notificationService';
+import { requestNotificationPermission, snoozeReminder, registerPushToken } from './src/services/notificationService';
 import { loadSettings, saveSettings } from './src/services/settingsStorageService';
 import { isBiometricAvailable, authenticateWithBiometrics } from './src/services/biometricService';
 import { subscribeToEvents, subscribeToFamilyActivity, CloudEvent, EventScope } from './src/services/cloudEventService';
@@ -146,6 +146,13 @@ function MainApp() {
       setRestrictToOwnEventsState(!!saved.restrictToOwnEvents);
     });
   }, []);
+
+  // Registers this device for real background push notifications (the
+  // Cloud Function we're about to deploy reads this token). Re-registers on
+  // every launch since tokens can occasionally rotate.
+  useEffect(() => {
+    if (user) registerPushToken(user.uid);
+  }, [user?.uid]);
 
   // Handles taps on the "Snooze" / "Dismiss" buttons on reminder notifications.
   useEffect(() => {

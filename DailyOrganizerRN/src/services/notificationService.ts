@@ -1,4 +1,7 @@
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from './firebase';
 import { OrganizerEvent, CATEGORY_STYLES } from '../models/Event';
 import { loadSettings } from './settingsStorageService';
 
@@ -25,6 +28,26 @@ export async function requestNotificationPermission(): Promise<void> {
     { identifier: 'snooze', buttonTitle: `Snooze ${SNOOZE_MINUTES} min` },
     { identifier: 'dismiss', buttonTitle: 'Dismiss', options: { isDestructive: true } },
   ]);
+}
+
+/** Gets this device's Expo push token and saves it on the user's profile —
+ * this is what the Cloud Function reads to know where to send a real
+ * background push notification. Safe to call every launch; overwrites with
+ * the current token each time (tokens can occasionally change). */
+export async function registerPushToken(uid: string): Promise<void> {
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) return; // eas init hasn't run yet, or app.json isn't synced — nothing to register with
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    await setDoc(doc(db, 'users', uid), { pushToken: tokenData.data }, { merge: true });
+  } catch {
+    // Push token registration failing shouldn't block anything else in the
+    // app — local reminders still work fine either way.
+  }
 }
 
 function notificationId(eventId: string): string {
