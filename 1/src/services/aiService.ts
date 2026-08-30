@@ -28,3 +28,13 @@ export async function parseEventText(text: string): Promise<ParsedEventDraft> {
   const result = await callable({ text, localNow: localNowString(), timeZone });
   return result.data as ParsedEventDraft;
 }
+
+/** Same idea as parseEventText, but from a photo — a flyer, invite, or
+ * school note. `base64Image` should be a compressed JPEG, already resized
+ * client-side to keep the request small. */
+export async function parseEventPhoto(base64Image: string, mimeType: string): Promise<ParsedEventDraft> {
+  const callable = httpsCallable(cloudFunctions, 'parseEventPhoto');
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const result = await callable({ imageBase64: base64Image, mimeType, localNow: localNowString(), timeZone });
+  return result.data as ParsedEventDraft;
+}
