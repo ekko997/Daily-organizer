@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Steady Days",
+    "slug": "daily-organizer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon-1024.png",
+    "scheme": "dailyorganizer",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/icon-1024.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#022515"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.yourcompany.dailyorganizer",
+      "icon": {
+        "light": "./assets/icon-1024-light.png",
+        "dark": "./assets/icon-1024.png"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
+    },
+    "plugins": [
+      "expo-notifications",
+      "expo-localization",
+      "@sentry/react-native"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "REPLACE_WITH_YOUR_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
