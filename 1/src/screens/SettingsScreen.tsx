@@ -477,6 +477,10 @@ export default function SettingsScreen() {
                     (Raw check — docExists: {String(lastFamilyIdCheck.docExists)}, rawData: {lastFamilyIdCheck.rawData})
                   </Text>
                 )}
+                <Pressable style={[styles.dataButton, { marginTop: spacing.sm }]} onPress={() => { haptics.light(); retryLoad(); }}>
+                  <Ionicons name="refresh-outline" size={16} color={colors.textPrimary} />
+                  <Text style={styles.dataButtonText}>Refresh family check</Text>
+                </Pressable>
                 <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
                   <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
                   <Text style={styles.dataButtonText}>Set up family sharing</Text>
