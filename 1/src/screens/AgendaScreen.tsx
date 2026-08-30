@@ -10,6 +10,7 @@ import { useTheme } from '../utils/ThemeContext';
 import { colorForMember, memberDisplayName } from '../utils/memberColor';
 import { useFamily } from '../utils/FamilyContext';
 import AddEditEventModal from './AddEditEventModal';
+import AICalendarQAModal from './AICalendarQAModal';
 import ScreenTransition from '../components/ScreenTransition';
 import EmptyState from '../components/EmptyState';
 import { haptics } from '../utils/haptics';
@@ -25,6 +26,7 @@ export default function AgendaScreen() {
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [qaModalVisible, setQaModalVisible] = useState(false);
 
   function memberName(uid: string): string {
     return memberDisplayName(members.find(x => x.uid === uid));
@@ -94,7 +96,12 @@ export default function AgendaScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenTransition>
-      <Text style={styles.header}>Agenda</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Agenda</Text>
+        <Pressable style={styles.askButton} onPress={() => setQaModalVisible(true)} accessibilityLabel="Ask your calendar" accessibilityRole="button">
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.accent} />
+        </Pressable>
+      </View>
 
       {sections.length > 0 && !searchQuery && (
         <View style={styles.statCard}>
@@ -196,6 +203,7 @@ export default function AgendaScreen() {
         editingEventId={editingEventId}
         occurrenceDate={editingOccurrenceDate}
       />
+      <AICalendarQAModal visible={qaModalVisible} onClose={() => setQaModalVisible(false)} />
       </ScreenTransition>
     </SafeAreaView>
   );
@@ -204,7 +212,9 @@ export default function AgendaScreen() {
 function makeStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    header: { ...typography.screenTitle, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm, color: colors.textPrimary },
+    header: { ...typography.screenTitle, color: colors.textPrimary },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.sm },
+    askButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     statCard: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
       backgroundColor: colors.surfaceDark, borderRadius: radii.lg,

@@ -38,3 +38,14 @@ export async function parseEventPhoto(base64Image: string, mimeType: string): Pr
   const result = await callable({ imageBase64: base64Image, mimeType, localNow: localNowString(), timeZone });
   return result.data as ParsedEventDraft;
 }
+
+/** Answers a plain-language question about the person's own calendar
+ * ("when's my next dentist appointment?"). `eventsContext` is a compact
+ * text summary of their upcoming events, built client-side from data
+ * already loaded in the app — the function never queries Firestore itself. */
+export async function askCalendarQuestion(question: string, eventsContext: string): Promise<string> {
+  const callable = httpsCallable(cloudFunctions, 'answerCalendarQuestion');
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const result = await callable({ question, eventsContext, localNow: localNowString(), timeZone });
+  return (result.data as { answer: string }).answer;
+}
