@@ -41,7 +41,7 @@ const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 export default function SettingsScreen() {
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events, restrictToOwnEvents, setRestrictToOwnEvents } = useEvents();
   const { user, signOut, deleteAccount } = useAuth();
-  const { family, members, renameFamily, removeMember, leaveFamily, loadError, retryLoad } = useFamily();
+  const { family, members, renameFamily, removeMember, leaveFamily, loadError, retryLoad, debugFamilyId } = useFamily();
   const { pendingInviteCode, clearPendingInviteCode } = usePendingInvite();
   const { colors, mode, preference, setPreference } = useTheme();
   const { showToast } = useToast();
@@ -469,6 +469,11 @@ export default function SettingsScreen() {
                   You're using Steady Days solo right now. Set up family sharing anytime to add a shared calendar
                   you and others can see and edit together.
                 </Text>
+                {debugFamilyId && (
+                  <Text style={[styles.helperText, { color: colors.holiday, marginTop: spacing.sm }]}>
+                    (Debug: found familyId "{debugFamilyId}" but couldn't load that family — this is temporary diagnostic text)
+                  </Text>
+                )}
                 <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
                   <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
                   <Text style={styles.dataButtonText}>Set up family sharing</Text>

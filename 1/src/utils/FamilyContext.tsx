@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { reportError } from '../services/errorReporting';
 import { useAuth } from './AuthContext';
 import {
   createFamily as createFamilyService,
@@ -25,6 +26,10 @@ interface FamilyContextValue {
   renameFamily: (name: string) => Promise<void>;
   removeMember: (uid: string) => Promise<void>;
   leaveFamily: () => Promise<void>;
+  // Temporary diagnostic — the raw familyId the context resolved internally,
+  // even when the actual family document failed to load. Lets us tell apart
+  // "never found a familyId" from "found one but couldn't load the family."
+  debugFamilyId: string | null;
 }
 
 const FamilyContext = createContext<FamilyContextValue>({
@@ -38,6 +43,7 @@ const FamilyContext = createContext<FamilyContextValue>({
   renameFamily: async () => {},
   removeMember: async () => {},
   leaveFamily: async () => {},
+  debugFamilyId: null,
 });
 
 export function FamilyProvider({ children }: { children: React.ReactNode }) {
@@ -126,10 +132,15 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
             // Non-fatal — the family itself still loaded fine even if member
             // emails fail to fetch for some reason.
           }
+        } else {
+          // We have a familyId but the document isn't there when we look —
+          // captured so we can actually see this happen instead of guessing.
+          reportError(new Error('Family document not found for known familyId'), { familyId, uid: user?.uid });
         }
         setLoading(false);
       },
       err => {
+        reportError(err, { context: 'family onSnapshot error', familyId, uid: user?.uid });
         setLoadError(err?.message ?? 'Failed to load family data.');
         setLoading(false);
       }
@@ -172,7 +183,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   }, [familyId, user]);
 
   return (
-    <FamilyContext.Provider value={{ family, members, loading, loadError, retryLoad, createFamily, joinFamily, renameFamily, removeMember, leaveFamily }}>
+    <FamilyContext.Provider value={{ family, members, loading, loadError, retryLoad, createFamily, joinFamily, renameFamily, removeMember, leaveFamily, debugFamilyId: familyId }}>
       {children}
     </FamilyContext.Provider>
   );
