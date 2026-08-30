@@ -1,5 +1,6 @@
-import { doc, getDoc, getDocs as getDocsCollection, setDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, documentId } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, getDocs as getDocsCollection, setDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, documentId } from 'firebase/firestore';
 import { db } from './firebase';
+import { reportError } from './errorReporting';
 
 export interface FamilyDoc {
   id: string;
@@ -44,8 +45,26 @@ export async function joinFamily(uid: string, inviteCode: string): Promise<Famil
 }
 
 export async function getUserFamilyId(uid: string): Promise<string | null> {
-  const userSnap = await getDoc(doc(db, 'users', uid));
-  return userSnap.exists() ? (userSnap.data().familyId ?? null) : null;
+  // Reads directly from the server, bypassing any local cache — rules out
+  // a stale cached copy of the user doc (from before familyId was set)
+  // being the reason this silently returns null.
+  const userSnap = await getDocFromServer(doc(db, 'users', uid));
+  const exists = userSnap.exists();
+  const rawData = exists ? userSnap.data() : null;
+  const familyId = exists ? (rawData?.familyId ?? null) : null;
+
+  if (!familyId) {
+    // Logs exactly what we saw, so we can see in Sentry precisely why this
+    // came back empty instead of guessing — the uid used, whether the doc
+    // existed at all, and its raw contents if it did.
+    reportError(new Error('getUserFamilyId resolved to null'), {
+      uid,
+      docExists: exists,
+      rawData: JSON.stringify(rawData),
+    });
+  }
+
+  return familyId;
 }
 
 export async function renameFamily(familyId: string, name: string): Promise<void> {

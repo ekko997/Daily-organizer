@@ -469,11 +469,9 @@ export default function SettingsScreen() {
                   You're using Steady Days solo right now. Set up family sharing anytime to add a shared calendar
                   you and others can see and edit together.
                 </Text>
-                {debugFamilyId && (
-                  <Text style={[styles.helperText, { color: colors.holiday, marginTop: spacing.sm }]}>
-                    (Debug: found familyId "{debugFamilyId}" but couldn't load that family — this is temporary diagnostic text)
-                  </Text>
-                )}
+                <Text style={[styles.helperText, { color: colors.holiday, marginTop: spacing.sm }]}>
+                  (Debug: signed in as uid "{user?.uid}" — {debugFamilyId ? `found familyId "${debugFamilyId}" but couldn't load that family` : 'no familyId was found for this account'})
+                </Text>
                 <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
                   <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
                   <Text style={styles.dataButtonText}>Set up family sharing</Text>
