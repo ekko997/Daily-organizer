@@ -44,6 +44,11 @@ export async function joinFamily(uid: string, inviteCode: string): Promise<Famil
   return { id: familyDoc.id, ...(familyDoc.data() as any) };
 }
 
+// Temporary diagnostic — the most recent raw result from checking a user's
+// familyId, so we can display it directly in the app instead of navigating
+// Sentry's UI to find it.
+export let lastFamilyIdCheck: { uid: string; docExists: boolean; rawData: string } | null = null;
+
 export async function getUserFamilyId(uid: string): Promise<string | null> {
   // Reads directly from the server, bypassing any local cache — rules out
   // a stale cached copy of the user doc (from before familyId was set)
@@ -53,10 +58,9 @@ export async function getUserFamilyId(uid: string): Promise<string | null> {
   const rawData = exists ? userSnap.data() : null;
   const familyId = exists ? (rawData?.familyId ?? null) : null;
 
+  lastFamilyIdCheck = { uid, docExists: exists, rawData: JSON.stringify(rawData) };
+
   if (!familyId) {
-    // Logs exactly what we saw, so we can see in Sentry precisely why this
-    // came back empty instead of guessing — the uid used, whether the doc
-    // existed at all, and its raw contents if it did.
     reportError(new Error('getUserFamilyId resolved to null'), {
       uid,
       docExists: exists,

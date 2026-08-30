@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { setDisplayName as setMemberDisplayName, getMemberProfiles } from '../services/familyService';
+import { setDisplayName as setMemberDisplayName, getMemberProfiles, lastFamilyIdCheck } from '../services/familyService';
 import { Ionicons } from '@expo/vector-icons';
 import { useEvents } from '../utils/EventsContext';
 import { useAuth } from '../utils/AuthContext';
@@ -472,6 +472,11 @@ export default function SettingsScreen() {
                 <Text style={[styles.helperText, { color: colors.holiday, marginTop: spacing.sm }]}>
                   (Debug: signed in as uid "{user?.uid}" — {debugFamilyId ? `found familyId "${debugFamilyId}" but couldn't load that family` : 'no familyId was found for this account'})
                 </Text>
+                {lastFamilyIdCheck && (
+                  <Text style={[styles.helperText, { color: colors.holiday, marginTop: spacing.sm }]} selectable>
+                    (Raw check — docExists: {String(lastFamilyIdCheck.docExists)}, rawData: {lastFamilyIdCheck.rawData})
+                  </Text>
+                )}
                 <Pressable style={styles.dataButton} onPress={() => setFamilySetupVisible(true)}>
                   <Ionicons name="people-outline" size={16} color={colors.textPrimary} />
                   <Text style={styles.dataButtonText}>Set up family sharing</Text>
