@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { parseEventText, ParsedEventDraft } from '../services/aiService';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
 import { useTheme } from '../utils/ThemeContext';
+import { useToast } from '../utils/ToastContext';
 import { haptics } from '../utils/haptics';
 
 interface Props {
@@ -16,6 +17,7 @@ const EXAMPLES = ['Dentist next Tuesday 3pm', 'Team meeting tomorrow 10am', "Mom
 
 export default function AIQuickAddModal({ visible, onClose, onParsed }: Props) {
   const { colors } = useTheme();
+  const { showToast } = useToast();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,9 @@ export default function AIQuickAddModal({ visible, onClose, onParsed }: Props) {
       });
       setText('');
       onClose();
+      if (parsed.confirmation) {
+        showToast({ message: parsed.confirmation, duration: 4000 });
+      }
     } catch (err: any) {
       haptics.warning();
       setError(err?.message || "Couldn't understand that — try rephrasing");
