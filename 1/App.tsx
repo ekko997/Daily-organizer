@@ -33,6 +33,26 @@ import { memberDisplayName } from './src/utils/memberColor';
 import { useFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { initErrorReporting } from './src/services/errorReporting';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://7d20952171629e8c119ad43264cf54e1@o4512000863633408.ingest.de.sentry.io/4512000873005136',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 const Tab = createBottomTabNavigator();
 
@@ -375,7 +395,7 @@ function RootGate() {
   );
 }
 
-export default function App() {
+export default Sentry.wrap(function App() {
   // Kicks off loading the Manrope display font in the background. No need
   // to gate rendering on this — React Native silently falls back to the
   // system font for any Text using 'Manrope_...' until it's registered,
@@ -399,4 +419,4 @@ export default function App() {
       </ThemeProvider>
     </ErrorBoundary>
   );
-}
+});

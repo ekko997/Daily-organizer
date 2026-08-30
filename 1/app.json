@@ -28,7 +28,15 @@
     "plugins": [
       "expo-notifications",
       "expo-localization",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "siz-handwerk-service"
+        }
+      ]
     ],
     "extra": {
       "eas": {
