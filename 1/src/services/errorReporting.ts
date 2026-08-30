@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/react-native';
 // PASTE YOUR SENTRY DSN HERE once you've created a free project at
 // https://sentry.io — Settings → Projects → (your project) → Client Keys (DSN).
 // Leave as an empty string to disable reporting entirely (no-op, safe default).
-const SENTRY_DSN =https://7d20952171629e8c119ad43264cf54e1@o4512000863633408.ingest.de.sentry.io/4512000873005136 '';
+const SENTRY_DSN ='https://7d20952171629e8c119ad43264cf54e1@o4512000863633408.ingest.de.sentry.io/4512000873005136';
 
 export function initErrorReporting() {
   if (!SENTRY_DSN) return; // no-op until a real DSN is set
