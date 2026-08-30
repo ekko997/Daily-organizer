@@ -85,6 +85,16 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       getUserFamilyId(user!.uid)
         .then(id => {
           if (settled || cancelled) return;
+          if (!id && !isRetry) {
+            // A cold app launch can occasionally get a stale/incomplete read
+            // on the very first Firestore call, before everything's fully
+            // warmed up — even though the data itself is correct (confirmed:
+            // a manual refresh moments later always finds it). One quick
+            // silent retry catches this automatically, matching what a
+            // manual refresh does, without the person needing to know that.
+            setTimeout(() => { if (!settled && !cancelled) attempt(true); }, 1500);
+            return;
+          }
           settled = true;
           clearTimeout(timeout);
           setFamilyId(id);
