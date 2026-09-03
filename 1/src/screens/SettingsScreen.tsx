@@ -69,6 +69,7 @@ export default function SettingsScreen() {
   const [quietHoursStart, setQuietHoursStart] = useState(22);
   const [quietHoursEnd, setQuietHoursEnd] = useState(7);
   const [holidayListVisible, setHolidayListVisible] = useState(false);
+  const [languageDropdownOpen, setLanguageDropdownOpen] = useState(false);
   const [savedDisplayName, setSavedDisplayName] = useState('');
   const [displayNameDraft, setDisplayNameDraft] = useState('');
 
@@ -541,20 +542,28 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>{t('settings_language')}</Text>
-        <View style={styles.familyCard}>
-          {SUPPORTED_LANGUAGES.map((lang, i) => {
-            const selected = i18n.language === lang.code;
-            return (
-              <Pressable
-                key={lang.code}
-                style={[styles.lockRow, i < SUPPORTED_LANGUAGES.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.md, marginBottom: spacing.md }]}
-                onPress={() => { haptics.light(); setAppLanguage(lang.code); }}
-              >
-                <Text style={[styles.lockTitle, selected && { color: colors.accent }]}>{lang.label}</Text>
-                {selected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
-              </Pressable>
-            );
-          })}
+        <View style={{ position: 'relative', zIndex: 10 }}>
+          <Pressable style={styles.langDropdownButton} onPress={() => setLanguageDropdownOpen(!languageDropdownOpen)}>
+            <Text style={styles.dataButtonText}>{SUPPORTED_LANGUAGES.find(l => l.code === i18n.language)?.label ?? 'English'}</Text>
+            <Ionicons name={languageDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} style={{ marginLeft: 'auto' }} />
+          </Pressable>
+          {languageDropdownOpen && (
+            <View style={styles.langDropdown}>
+              {SUPPORTED_LANGUAGES.map((lang, i) => {
+                const selected = i18n.language === lang.code;
+                return (
+                  <Pressable
+                    key={lang.code}
+                    style={[styles.langDropdownRow, i > 0 && styles.langDropdownDivider]}
+                    onPress={() => { haptics.light(); setAppLanguage(lang.code); setLanguageDropdownOpen(false); }}
+                  >
+                    <Text style={[styles.langDropdownText, selected && { color: colors.accent, fontWeight: '700' }]}>{lang.label}</Text>
+                    {selected && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Privacy</Text>
@@ -925,6 +934,11 @@ function makeStyles(colors: ThemeColors) {
     clearButton: { padding: spacing.xs },
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xxl * 1.3, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
     dataButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, marginBottom: spacing.sm },
+    langDropdownButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
+    langDropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, backgroundColor: colors.surface, borderRadius: radii.sm, borderWidth: 1, borderColor: colors.border, ...cardShadow },
+    langDropdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+    langDropdownDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+    langDropdownText: { fontSize: 14, color: colors.textPrimary },
     dataButtonText: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
     deleteAccountButton: { alignItems: 'center', padding: spacing.sm, marginTop: spacing.xs },
     aboutLabel: { fontSize: 14, color: colors.textSecondary },
