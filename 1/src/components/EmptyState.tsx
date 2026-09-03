@@ -35,7 +35,7 @@ export default function EmptyState({ icon, title, subtitle, fill, mascotImage }:
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingVertical: spacing.xxl * 1.2, gap: spacing.xs },
   iconCircle: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
-  mascotImage: { width: 330, height: 330, marginBottom: spacing.sm },
+  mascotImage: { width: 220, height: 220, marginBottom: spacing.sm },
   title: { fontSize: 15, fontWeight: '700' },
   subtitle: { fontSize: 13, textAlign: 'center', paddingHorizontal: 30, marginTop: 2 },
 });
