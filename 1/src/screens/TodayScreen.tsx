@@ -145,20 +145,15 @@ export default function TodayScreen() {
           </View>
         )}
         <View style={styles.header}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.greeting}>{greeting()}</Text>
-              <View style={styles.dateRow}>
-                <Text style={styles.date}>{format(today, 'EEEE, MMMM d')}</Text>
-                {todayForecast && (
-                  <View style={styles.weatherChip}>
-                    <Ionicons name={weatherIcon(todayForecast.weatherCode) as any} size={16} color={colors.accent} />
-                    <Text style={styles.weatherText}>{Math.round(todayForecast.tempMaxC)}° / {Math.round(todayForecast.tempMinC)}°</Text>
-                  </View>
-                )}
+          <Text style={styles.greeting}>{greeting()}</Text>
+          <View style={styles.dateRow}>
+            <Text style={styles.date}>{format(today, 'EEEE, MMMM d')}</Text>
+            {todayForecast && (
+              <View style={styles.weatherChip}>
+                <Ionicons name={weatherIcon(todayForecast.weatherCode) as any} size={16} color={colors.accent} />
+                <Text style={styles.weatherText}>{Math.round(todayForecast.tempMaxC)}° / {Math.round(todayForecast.tempMinC)}°</Text>
               </View>
-            </View>
-            <Image source={require('../../assets/mascot/owl-hero.png')} style={styles.headerMascot} resizeMode="contain" />
+            )}
           </View>
           {todayForecast?.sunrise && todayForecast?.sunset && (
             <View style={styles.sunRow}>
@@ -341,7 +336,6 @@ function makeStyles(colors: ThemeColors) {
     forecastDayLabel: { fontSize: 11, fontWeight: '600', color: colors.textSecondary },
     forecastDayTemp: { fontSize: 12, fontWeight: '600', color: colors.textPrimary },
     greeting: { ...typography.greeting, color: colors.textSecondary },
-    headerMascot: { width: 56, height: 60, marginLeft: spacing.sm },
     date: { ...typography.screenTitle, marginTop: 2, color: colors.textPrimary },
     nextUpCard: {
       backgroundColor: colors.surfaceDark,
