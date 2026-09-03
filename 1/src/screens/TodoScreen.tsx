@@ -239,6 +239,7 @@ export default function TodoScreen() {
               icon={searchQuery ? 'search' : 'checkmark-done-outline'}
               title={searchQuery ? 'No matches' : 'All clear'}
               subtitle={searchQuery ? undefined : 'Nothing on this list right now'}
+              mascotImage={searchQuery ? undefined : require('../../assets/mascot/owl-checklist.png')}
             />
           ) : (
             visibleTodos.map(todo => (

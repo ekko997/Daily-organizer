@@ -483,7 +483,7 @@ export default function CalendarScreen() {
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         ListEmptyComponent={
-          <EmptyState icon="calendar-clear-outline" title="Nothing scheduled" subtitle="Tap + to add something for this day" />
+          <EmptyState icon="calendar-clear-outline" title="Nothing scheduled" subtitle="Tap + to add something for this day" mascotImage={require('../../assets/mascot/owl-calendar.png')} />
         }
         renderItem={({ item }) => {
           const style = CATEGORY_STYLES[item.category];

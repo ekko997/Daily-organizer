@@ -139,6 +139,7 @@ export default function AgendaScreen() {
           icon={searchQuery ? 'search' : 'calendar-outline'}
           title={searchQuery ? 'No matching events' : 'No events yet'}
           subtitle={searchQuery ? undefined : 'Add one from the Calendar tab'}
+          mascotImage={searchQuery ? undefined : require('../../assets/mascot/owl-sleeping.png')}
         />
       ) : (
         <SectionList
