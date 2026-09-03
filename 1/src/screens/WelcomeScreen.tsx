@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Image, StyleSheet, Pressable, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../utils/ThemeContext';
 import { spacing, radii, typography, ThemeColors } from '../utils/theme';
@@ -15,7 +15,10 @@ export default function WelcomeScreen({ onContinue }: Props) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Image source={require('../../assets/mascot/owl-hero.png')} style={styles.heroImage} resizeMode="contain" />
+        <View style={styles.iconCircle}>
+          <View style={styles.sun} />
+          <View style={styles.horizon} />
+        </View>
 
         <Text style={styles.title}>Steady Days</Text>
         <Text style={styles.subtitle}>
@@ -52,7 +55,6 @@ function makeStyles(colors: ThemeColors) {
       alignSelf: 'center', marginBottom: spacing.xxl,
       alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     },
-    heroImage: { width: 200, height: 220, alignSelf: 'center', marginBottom: spacing.lg },
     sun: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.textOnDark, marginTop: -8 },
     horizon: { width: '100%', height: 14, backgroundColor: colors.textOnDark, marginTop: 14 },
     title: { ...typography.screenTitle, fontSize: 28, color: colors.textPrimary, textAlign: 'center' },
