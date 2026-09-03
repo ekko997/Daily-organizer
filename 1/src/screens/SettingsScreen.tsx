@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TextInput, SafeAreaView, ScrollView, Pressable,
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Clipboard from 'expo-clipboard';
+import { useTranslation } from 'react-i18next';
+import i18n, { SUPPORTED_LANGUAGES, setAppLanguage } from '../i18n';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { setDisplayName as setMemberDisplayName, getMemberProfiles } from '../services/familyService';
@@ -39,6 +41,7 @@ const THEME_OPTIONS: { label: string; value: ThemePreference; icon: string }[] =
 const COUNTRIES_WITH_REGIONS = new Set(['US', 'CA', 'AU']);
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const { countryCode, setCountryCode, region, setRegion, cityName, setLocation, events, restrictToOwnEvents, setRestrictToOwnEvents } = useEvents();
   const { user, signOut, deleteAccount } = useAuth();
   const { family, members, renameFamily, removeMember, leaveFamily, loadError, retryLoad } = useFamily();
@@ -532,6 +535,23 @@ export default function SettingsScreen() {
               >
                 <Ionicons name={opt.icon as any} size={18} color={selected ? colors.white : colors.textPrimary} />
                 <Text style={[styles.themeOptionText, selected && { color: colors.white }]}>{opt.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>{t('settings_language')}</Text>
+        <View style={styles.familyCard}>
+          {SUPPORTED_LANGUAGES.map((lang, i) => {
+            const selected = i18n.language === lang.code;
+            return (
+              <Pressable
+                key={lang.code}
+                style={[styles.lockRow, i < SUPPORTED_LANGUAGES.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.md, marginBottom: spacing.md }]}
+                onPress={() => { haptics.light(); setAppLanguage(lang.code); }}
+              >
+                <Text style={[styles.lockTitle, selected && { color: colors.accent }]}>{lang.label}</Text>
+                {selected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
               </Pressable>
             );
           })}

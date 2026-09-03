@@ -31,28 +31,10 @@ import { PendingInviteContext } from './src/utils/PendingInviteContext';
 import { haptics } from './src/utils/haptics';
 import { memberDisplayName } from './src/utils/memberColor';
 import { useFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { useTranslation } from 'react-i18next';
+import './src/i18n'; // side-effect import — initializes the translation system
 import { initErrorReporting } from './src/services/errorReporting';
 import ErrorBoundary from './src/components/ErrorBoundary';
-import * as Sentry from '@sentry/react-native';
-
-Sentry.init({
-  dsn: 'https://7d20952171629e8c119ad43264cf54e1@o4512000863633408.ingest.de.sentry.io/4512000873005136',
-
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
-  sendDefaultPii: true,
-
-  // Enable Logs
-  enableLogs: true,
-
-  // Configure Session Replay
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
-});
 
 const Tab = createBottomTabNavigator();
 
@@ -131,6 +113,7 @@ function MainApp() {
   const { user } = useAuth();
   const { family, members } = useFamily();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [events, setEvents] = useState<CloudEvent[]>([]);
   const [rawEvents, setRawEvents] = useState<CloudEvent[]>([]);
   const [activeScope, setActiveScope] = useState<EventScope>('personal');
@@ -287,11 +270,11 @@ function MainApp() {
             animation: 'shift',
           }}
         >
-          <Tab.Screen name="Today" component={TodayScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="sunny" size={size} color={color} /> }} />
-          <Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />
-          <Tab.Screen name="Agenda" component={AgendaScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} /> }} />
-          <Tab.Screen name="To-Do" component={TodoScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size} color={color} /> }} />
-          <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />
+          <Tab.Screen name="Today" component={TodayScreen} options={{ tabBarLabel: t('tab_today'), tabBarIcon: ({ color, size }) => <Ionicons name="sunny" size={size} color={color} /> }} />
+          <Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarLabel: t('tab_calendar'), tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />
+          <Tab.Screen name="Agenda" component={AgendaScreen} options={{ tabBarLabel: t('tab_agenda'), tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} /> }} />
+          <Tab.Screen name="To-Do" component={TodoScreen} options={{ tabBarLabel: t('tab_todo'), tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size} color={color} /> }} />
+          <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tab_settings'), tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />
         </Tab.Navigator>
       </NavigationContainer>
     </EventsContext.Provider>
@@ -395,7 +378,7 @@ function RootGate() {
   );
 }
 
-export default Sentry.wrap(function App() {
+export default function App() {
   // Kicks off loading the Manrope display font in the background. No need
   // to gate rendering on this — React Native silently falls back to the
   // system font for any Text using 'Manrope_...' until it's registered,
@@ -419,4 +402,4 @@ export default Sentry.wrap(function App() {
       </ThemeProvider>
     </ErrorBoundary>
   );
-});
+}
