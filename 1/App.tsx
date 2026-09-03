@@ -33,6 +33,7 @@ import { memberDisplayName } from './src/utils/memberColor';
 import { useFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { useTranslation } from 'react-i18next';
 import './src/i18n'; // side-effect import — initializes the translation system
+import { SunIcon, CalendarDaysIcon, ListBulletIcon, CheckCircleIcon, Cog6ToothIcon } from 'react-native-heroicons/solid';
 import { initErrorReporting } from './src/services/errorReporting';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
@@ -270,11 +271,11 @@ function MainApp() {
             animation: 'shift',
           }}
         >
-          <Tab.Screen name="Today" component={TodayScreen} options={{ tabBarLabel: t('tab_today'), tabBarIcon: ({ color, size }) => <Ionicons name="sunny" size={size} color={color} /> }} />
-          <Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarLabel: t('tab_calendar'), tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />
-          <Tab.Screen name="Agenda" component={AgendaScreen} options={{ tabBarLabel: t('tab_agenda'), tabBarIcon: ({ color, size }) => <Ionicons name="list" size={size} color={color} /> }} />
-          <Tab.Screen name="To-Do" component={TodoScreen} options={{ tabBarLabel: t('tab_todo'), tabBarIcon: ({ color, size }) => <Ionicons name="checkbox-outline" size={size} color={color} /> }} />
-          <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tab_settings'), tabBarIcon: ({ color, size }) => <Ionicons name="settings" size={size} color={color} /> }} />
+          <Tab.Screen name="Today" component={TodayScreen} options={{ tabBarLabel: t('tab_today'), tabBarIcon: ({ color, size }) => <SunIcon width={size} height={size} color={color} /> }} />
+          <Tab.Screen name="Calendar" component={CalendarScreen} options={{ tabBarLabel: t('tab_calendar'), tabBarIcon: ({ color, size }) => <CalendarDaysIcon width={size} height={size} color={color} /> }} />
+          <Tab.Screen name="Agenda" component={AgendaScreen} options={{ tabBarLabel: t('tab_agenda'), tabBarIcon: ({ color, size }) => <ListBulletIcon width={size} height={size} color={color} /> }} />
+          <Tab.Screen name="To-Do" component={TodoScreen} options={{ tabBarLabel: t('tab_todo'), tabBarIcon: ({ color, size }) => <CheckCircleIcon width={size} height={size} color={color} /> }} />
+          <Tab.Screen name="Settings" component={SettingsScreen} options={{ tabBarLabel: t('tab_settings'), tabBarIcon: ({ color, size }) => <Cog6ToothIcon width={size} height={size} color={color} /> }} />
         </Tab.Navigator>
       </NavigationContainer>
     </EventsContext.Provider>
