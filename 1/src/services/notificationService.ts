@@ -114,10 +114,21 @@ export async function cancelReminder(eventId: string): Promise<void> {
 }
 
 function reminderBody(event: OrganizerEvent): string {
-  if (event.category === 'birthday') return 'Birthday reminder';
-  if (event.category === 'anniversary') return 'Anniversary reminder';
-  if (event.reminderMinutesBefore === 0) return 'Starting now';
-  if (event.reminderMinutesBefore < 60) return `Starts in ${event.reminderMinutesBefore} min`;
-  const hours = Math.round(event.reminderMinutesBefore / 60);
-  return `Starts in ${hours}h`;
+  let base: string;
+  if (event.category === 'birthday') base = 'Birthday reminder';
+  else if (event.category === 'anniversary') base = 'Anniversary reminder';
+  else if (event.reminderMinutesBefore === 0) base = 'Starting now';
+  else if (event.reminderMinutesBefore < 60) base = `Starts in ${event.reminderMinutesBefore} min`;
+  else {
+    const hours = Math.round(event.reminderMinutesBefore / 60);
+    base = `Starts in ${hours}h`;
+  }
+
+  // If the event has notes, surface them right in the notification — this
+  // is what gives reminders that warm, specific "don't forget the shoes"
+  // feel instead of a generic time-based ping.
+  if (event.notes && event.notes.trim()) {
+    return `${base}. ${event.notes.trim()}`;
+  }
+  return base;
 }

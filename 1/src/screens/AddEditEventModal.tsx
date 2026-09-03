@@ -483,7 +483,7 @@ export default function AddEditEventModal({ visible, onClose, initialDate, editi
 
         <TextInput
           style={[styles.input, { height: 70 }, focusedField === 'notes' && styles.inputFocused]}
-          placeholder="Notes (optional)"
+          placeholder="Notes — shows in your reminder too, e.g. \"bring the shoes\""
           placeholderTextColor={colors.textSecondary}
           value={notes}
           onChangeText={setNotes}
